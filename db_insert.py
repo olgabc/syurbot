@@ -1,18 +1,8 @@
-from utils.coll import Config
+from config.config import DB
 import re
 import os
-from sqlalchemy import create_engine, Table, MetaData
+from sqlalchemy import Table, MetaData
 
-DB_PASSWORD = Config.get('DB.password')
-DB_HOST = Config.get('DB.host')
-DB = create_engine(
-    'mysql+pymysql://root:{}@{}/syurbotdb'.format(DB_PASSWORD, DB_HOST),
-    echo=True
-)
-
-PSOS_TO_CHECK = ["NOUN", "INFN", "VERB", "PRTS", "PRTF", "GRND", "ADJF", "ADJS", "COMP", "ADVB"]
-PSOS_TO_FIND = ["NOUN", "INFN", "INFN", "INFN", "INFN", "INFN", "ADJF", "ADJF", "ADJF", "ADVB"]
-UNCHANGABLE_WORDS = ["быть", "стать", "самый", "который", "привет", "почему", "зачем", "потому"]
 
 
 metadata = MetaData(DB)

@@ -1,3 +1,4 @@
+from libs.register import get_word_register
 import pymorphy2
 
 morph = pymorphy2.MorphAnalyzer()
@@ -10,17 +11,19 @@ class MyWord:
             word,
             tags=None,
             score=None,
-            word_register=None
+            word_register=None,
+            is_normal_form=False
     ):
         """
 
         :param word:
         :param tags: pymorphy2 tags
         :param score: float in [0,1]
-        :param word_register: {None, "lower", "title", "upper"}
+        :param word_register: {None, "get_register", "lower", "title", "upper"}
         """
         self.word = word
         self.parses = morph.parse(self.word)
+        self.psos = [str(p.tag.POS) for p in self.parses]
         self.score = score
         self.word_register = word_register
         self.register_tag = []
@@ -28,7 +31,9 @@ class MyWord:
         self.is_homonym = False
         self.parse_chosen = None
         self.tags_passed = tags
+        self.invalid_tags_passed = False
         self.extra_tags = []
+        self.all_tags = []
 
         if not self.tags_passed:
             self.tags_passed = []
@@ -36,66 +41,80 @@ class MyWord:
         if isinstance(self.tags_passed, str):
             self.tags_passed = [self.tags_passed, ]
 
+        if self.tags_passed:
+            self._try_tags_passed()
+
         if self.score:
             self.parses = [parse for parse in self.parses if parse.score > self.score]
+            self.psos = [str(p.tag.POS) for p in self.parses]
 
         if self.word_register:
-            self.parses = self._try_register()["parses"]
-            self.register_tag = self._try_register()["tag"]
+            self._try_register()
 
             if self.register_tag:
                 self.extra_tags += self.register_tag
 
-        self.psos = [str(p.tag.POS) for p in self.parses]
+        if is_normal_form:
+            self._try_normal_form()
+
         self.pos = self._get_pos()
+
+        if self.pos:
+            self._try_pos()
+
         self.is_homonym = self._check_if_homonym()
+
+        if self.is_homonym:
+            self._try_freq_dict()
+
         self.parse_chosen = self._choose_parse()
         self.extra_tags = self._get_extra_tags()
         self.all_tags = self._actualize_tags()
 
+    def _get_pos(self):
+
+        if self.tags_passed and not self.invalid_tags_passed:
+            for i in self.tags_passed:
+                if i == i.upper():
+                    return i
+
+        elif len(set(self.psos)) == 1 and "UNKN" not in self.parses[0].tag:
+            return self.parses[0].tag.POS
+
+        elif "PRTS" in self.psos:
+            return "PRTS"
+
+        elif set(self.psos) == {"ADJF", "NOUN"} and len(set([w.normal_form for w in self.parses])) == 1:
+            return "PRTF"
+
+        elif set(self.psos) == {"ADVB", "ADJS"} and len(set([w.normal_form for w in self.parses])) == 1:
+            return "ADVB"
+
+        elif set(self.psos) == {"ADJF", "NOUN"} and len(set([w.normal_form for w in self.parses])) == 1:
+            return "ADJF"
+
     def _check_if_homonym(self):
 
-        if self.is_homonym:
-            return True
+        is_homonym = False
 
-        elif len(set(self.psos)) > 1:
-            return True
-        
+        if len(set(self.psos)) > 1:
+            is_homonym = True
+
         elif self.pos == "NOUN":
 
             if "inan" not in self.tags_passed or "anim" not in self.tags_passed:
                 animacies = [a.tag.animacy for a in self.parses if a.tag.animacy and a.tag.POS == self.pos]
 
                 if len(set(animacies)) > 1:
-                    return True
+                    is_homonym = True
 
             elif "masc" not in self.tags_passed or "neut" not in self.tags_passed or "femn" not in self.tags_passed:
                 genders = [ge.tag.gender for ge in self.parses if ge.tag.gender and ge.tag.POS == self.pos]
 
                 if len(set(genders)) > 1:
-                    return True  
+                    is_homonym = True
 
-        else:
-            return False
-
-    def _get_pos(self):
-
-        if self.tags_passed:
-            for i in self.tags_passed:
-                if i == i.upper():
-                    return i
-
-        elif "PRTS" in self.psos:
-            return "PRTS"
-
-        elif "PRTF" in self.psos:
-            return "PRTF"
-
-        elif "ADVB" in self.psos:
-            return "ADVB"
-
-        elif len(set(self.psos)) == 1 and "UNKN" not in self.parses[0].tag:
-            return self.parses[0].tag.POS        
+        return is_homonym
 
     def _choose_parse(self):
 
@@ -109,6 +128,9 @@ class MyWord:
                 return w
 
     def _get_extra_tags(self):
+
+        if not self.parse_chosen:
+            return []
 
         declension_tags = []
 
@@ -134,14 +156,14 @@ class MyWord:
     def _actualize_tags(self):
 
         if not self.parse_chosen:
-            return
+            return []
 
         tags = str(self.parse_chosen.tag).split(",")
 
         if self.extra_tags:
             tags += self.extra_tags
 
-        return ','.join(tags)
+        return tags
 
     def get_required_tags(self):
 
@@ -182,6 +204,9 @@ class MyWord:
             return ["Abbr", "Name", "Patr", "Surn", "Geox", "Orgn", "Trad"]
 
     def get_inflect_tags(self):
+
+        if not self.parse_chosen:
+            return
 
         if self.pos == "NOUN" or self.word in ["он", "она", "оно", "они"]:
             return self._get_noun_tags()
@@ -266,6 +291,9 @@ class MyWord:
 
     def _try_register(self):
 
+        if self.word_register == "get_register":
+            self.register = get_word_register(self.word)
+
         title_tags = []
 
         if self.word_register == "lower":
@@ -288,15 +316,47 @@ class MyWord:
         if parses:
 
             if self.word_register == "lower":
-                return {"parses": parses, "tag": []}
+                self.parses = parses
+                self.psos = [str(p.tag.POS) for p in self.parses]
+                self.register_tag = []
 
             for tag in title_tags:
                 for p in parses:
                     if tag in p.tag:
-                        return {"parses": parses, "tag": [tag, ]}
+                        self.parses = parses
+                        self.psos = [str(p.tag.POS) for p in self.parses]
+                        self.register_tag = [tag, ]
+                        break
 
+    def _try_tags_passed(self):
+        tags_set = set(self.tags_passed)
+        parses = [parse for parse in self.parses if tags_set in parse.tag]
+
+        if parses:
+            self.parses = parses
+            self.psos = [str(p.tag.POS) for p in self.parses]
         else:
-            return {"parses": self.parses, "tag": []}
+            self.invalid_tags_passed = True
+            self.tags_passed = []
+
+    def _try_normal_form(self):
+        parses = [parse for parse in self.parses if parse.normal_form == self.word]
+        if parses:
+            self.parses = parses
+            self.psos = [str(p.tag.POS) for p in self.parses]
+
+    def _try_pos(self):
+        parses = [parse for parse in self.parses if parse.tag.POS == self.pos]
+        if parses:
+            self.parses = parses
+            self.psos = [str(p.tag.POS) for p in self.parses]
+
+    def _try_freq_dict(self):
+        for parse in self.parses:
+            pass
+        self.psos = [str(p.tag.POS) for p in self.parses]
+        self.pos = self._get_pos()
+        self.is_homonym = self._check_if_homonym()
 
 
 # animacy - одушевленность

@@ -10,9 +10,10 @@ from syur_classes import MyWord, morph
 
 import os
 #import pandas as pd
-from gen_funcs import generate_word, check_word, check_sentence, replace_word, generate_sentence, choose_sentences
+from generation_funcs import generate_word, check_sentence, replace_word, generate_sentence, choose_sentences
 import re
-from db_creation import get_dict_from_source, split_book_by_sentences
+
+
 for file in os.listdir("books"): #
     #split_book_by_sentences(file[:-4])
     #get_dict_from_source(file[:-4])
@@ -24,12 +25,17 @@ for file in os.listdir("books"): #
 ##asdf юродствовать ('futr',) INFN
 #d = "ван"; x = MyWord(d, "VERB"); print("d", x.get_required_tags())
 
-c = "зачем-то"; w = MyWord(c, word_register=None); #print("obj", w.parse_chosen.tag.number, w.parse_chosen.tag.case), pprint(w.parses)
-
+c = "конечно"; w = MyWord(
+    c,
+    tags="ADJF",
+    word_register=True,
+    is_normal_form=True
+) #print("obj", w.parse_chosen.tag.number, w.parse_chosen.tag.case), pprint(w.parses)
+pprint(morph.parse(c))
 pprint([
     w.__dict__,
-    ("i", w.get_inflect_tags()),
-    ("r", w.get_required_tags()),
+    ("i", w.get_inflect_tags())
+    #("r", w.get_required_tags()),
     #("d", d, x.object.inflect(set(w.get_inflect_tags())).word)
 ])
 #print("check_word", check_word(c))
@@ -38,4 +44,7 @@ pprint([
 #print(generate_sentence("ann_kar", to_print=False))
 #print(generate_sentence("ann_kar", to_print=False))
 #print(generate_sentence(my_sentence="Никогда не надоест"))
-pprint(morph.parse(c))
+
+
+
+

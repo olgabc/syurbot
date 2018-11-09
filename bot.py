@@ -5,7 +5,7 @@ from telegram.ext import CommandHandler
 from telegram.ext import MessageHandler
 from telegram.ext import ConversationHandler
 from telegram.ext import Filters
-from gen_funcs import generate_sentence
+from generation_funcs import generate_sentence
 
 
 TOKEN = Config.get('TELEGRAM.token')
