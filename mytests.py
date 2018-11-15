@@ -2,6 +2,7 @@
 #TODO check capital letter TODO if try_case: for i in try
 #TODO add type sign or word
 #TODO add score for first variant of parsed TODO implement. find same multiparsed
+#TODO multianim
 #pos and advb
 #don't delete case_tag, add Fixd, etc
 
@@ -25,19 +26,19 @@ for file in os.listdir("books"): #
 ##asdf юродствовать ('futr',) INFN
 #d = "ван"; x = MyWord(d, "VERB"); print("d", x.get_required_tags())
 
-c = "конечно"; w = MyWord(
+c = "борисенко"; w = MyWord(
     c,
-    tags="ADJF",
-    word_register=True,
+    tags=['NOUN', "3_only"],
+    word_register="get_register",
     is_normal_form=True
 ) #print("obj", w.parse_chosen.tag.number, w.parse_chosen.tag.case), pprint(w.parses)
 pprint(morph.parse(c))
 pprint([
     w.__dict__,
     ("i", w.get_inflect_tags())
-    #("r", w.get_required_tags()),
     #("d", d, x.object.inflect(set(w.get_inflect_tags())).word)
 ])
+print(("r", w.get_required_tags()))
 #print("check_word", check_word(c))
 #print(check_sentence("Для Зои Карловны был чудом"))
 #print(generate_word(pos="VERB", required_tags=["perf", "intr"], inflect_tags=("futr","2per"), freq=None, source="freq"))

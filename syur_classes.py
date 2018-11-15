@@ -5,6 +5,7 @@ morph = pymorphy2.MorphAnalyzer()
 
 
 class MyWord:
+    custom_tags = ["3_ii", "3_only", "refl", "multianim"]
 
     def __init__(
             self,
@@ -26,7 +27,6 @@ class MyWord:
         self.psos = [str(p.tag.POS) for p in self.parses]
         self.score = score
         self.word_register = word_register
-        self.register_tag = []
         self.pos = None
         self.is_homonym = False
         self.parse_chosen = None
@@ -34,6 +34,10 @@ class MyWord:
         self.invalid_tags_passed = False
         self.extra_tags = []
         self.all_tags = []
+
+        if [parse for parse in self.parses if "UNKN" in parse.tag]:
+            self.parses = None
+            return
 
         if not self.tags_passed:
             self.tags_passed = []
@@ -44,18 +48,14 @@ class MyWord:
         if self.tags_passed:
             self._try_tags_passed()
 
+        if is_normal_form:
+            self._try_normal_form()
+
         if self.score:
-            self.parses = [parse for parse in self.parses if parse.score > self.score]
-            self.psos = [str(p.tag.POS) for p in self.parses]
+            self._try_score()
 
         if self.word_register:
             self._try_register()
-
-            if self.register_tag:
-                self.extra_tags += self.register_tag
-
-        if is_normal_form:
-            self._try_normal_form()
 
         self.pos = self._get_pos()
 
@@ -64,12 +64,15 @@ class MyWord:
 
         self.is_homonym = self._check_if_homonym()
 
+        if self.is_homonym and self.pos == "NOUN":
+            self._try_score(0.1)
+
         if self.is_homonym:
             self._try_freq_dict()
 
         self.parse_chosen = self._choose_parse()
-        self.extra_tags = self._get_extra_tags()
-        self.all_tags = self._actualize_tags()
+        self._get_extra_tags()
+        self._get_all_tags()
 
     def _get_pos(self):
 
@@ -84,35 +87,41 @@ class MyWord:
         elif "PRTS" in self.psos:
             return "PRTS"
 
-        elif set(self.psos) == {"ADJF", "NOUN"} and len(set([w.normal_form for w in self.parses])) == 1:
-            return "PRTF"
-
         elif set(self.psos) == {"ADVB", "ADJS"} and len(set([w.normal_form for w in self.parses])) == 1:
             return "ADVB"
 
         elif set(self.psos) == {"ADJF", "NOUN"} and len(set([w.normal_form for w in self.parses])) == 1:
             return "ADJF"
 
+        elif set(self.psos) == {"PRTF", "NOUN"}:
+            return "PRTF"
+
+        elif set(self.psos) == {"PRTF", "ADJF"}:
+            return "PRTF"
+
     def _check_if_homonym(self):
 
         is_homonym = False
 
         if len(set(self.psos)) > 1:
-            is_homonym = True
+            is_homonym = "psos"
 
         elif self.pos == "NOUN":
+            animacies = [a.tag.animacy for a in self.parses if a.tag.animacy and a.tag.POS == self.pos]
+            genders = [ge.tag.gender for ge in self.parses if ge.tag.gender and ge.tag.POS == self.pos]
 
             if "inan" not in self.tags_passed or "anim" not in self.tags_passed:
-                animacies = [a.tag.animacy for a in self.parses if a.tag.animacy and a.tag.POS == self.pos]
 
                 if len(set(animacies)) > 1:
-                    is_homonym = True
+                    if len(set([n.normal_form for n in self.parses])) > 1:
+                        is_homonym = "animacy"
+                    else:
+                        self.extra_tags.append("multianim")
 
             elif "masc" not in self.tags_passed or "neut" not in self.tags_passed or "femn" not in self.tags_passed:
-                genders = [ge.tag.gender for ge in self.parses if ge.tag.gender and ge.tag.POS == self.pos]
 
                 if len(set(genders)) > 1:
-                    is_homonym = True
+                    is_homonym = "gender"
 
         return is_homonym
 
@@ -130,11 +139,10 @@ class MyWord:
     def _get_extra_tags(self):
 
         if not self.parse_chosen:
-            return []
-
-        declension_tags = []
+            return
 
         if self.pos == "NOUN" and not self.is_homonym:
+            declension_tags = []
 
             if self.parse_chosen.tag.gender == "femn" and self.word[-1] == "ь":
                 declension_tags = ["3_ii", "3_only"]
@@ -145,44 +153,69 @@ class MyWord:
             elif self.parse_chosen.normal_form[-2:] in ["ия", "ие", "ий"]:
                 declension_tags = ["3_ii", ]
 
+            self.extra_tags += declension_tags
+
         elif self.pos in ["VERB", "INFN"] and self.word[-2:] in ["сь", "ся"]:
 
-            declension_tags = ["refl", ]
+            refl_tags = ["refl", ]
+            self.extra_tags += refl_tags
 
-        declension_tags += self.register_tag
+        self.extra_tags = list(set(self.extra_tags))
+        return
 
-        return declension_tags
-
-    def _actualize_tags(self):
+    def _get_all_tags(self):
 
         if not self.parse_chosen:
             return []
 
-        tags = str(self.parse_chosen.tag).split(",")
+        tags = str(self.parse_chosen.tag).replace(" ", ",").split(",")
 
         if self.extra_tags:
             tags += self.extra_tags
 
-        return tags
+        self.all_tags += tags
+        self.all_tags = list(set(self.all_tags))
+        return
 
-    def get_required_tags(self):
+    def get_required_tags(self, extra_tags=None):
+        extra_noun_tags = ["Abbr", "Name", "Patr", "Surn", "Geox", "Orgn", "Trad"]
+        extra_adjf_tags = ["Anum", ]
+
+        if not extra_tags == "default":
+            extra_noun_tags = []
+            extra_adjf_tags = []
 
         required_tags = []
         required_pos = self.pos
 
         if self.pos == "NOUN":  # or self.word in ["он", "она", "оно", "они"]
             required_tags = [self.parse_chosen.tag.animacy, self.parse_chosen.tag.gender]
+
             if "Fixd" in self.parse_chosen.tag:
                 required_tags.append("Fixd")
+
+            if "Ms-f" in self.parse_chosen.tag:
+                required_tags.append("Ms-f")
+
+            if extra_noun_tags:
+                for tag in extra_noun_tags:
+                    if tag in self.parse_chosen:
+                        required_tags.append(tag)
 
         if self.pos in ["VERB", "INFN", "PRTS", "PRTF", "GRND"]:
             required_pos = "INFN"
             required_tags = [self.parse_chosen.tag.transitivity, self.parse_chosen.tag.aspect]
+
             if self.pos == "PRTS":
                 required_tags = ["tran", self.parse_chosen.tag.aspect]
 
         if self.pos in ["ADJS", "COMP"]:
             required_pos = "ADJF"
+
+            if extra_adjf_tags:
+                for tag in extra_adjf_tags:
+                    if tag in self.parse_chosen:
+                        required_tags.append(tag)
 
         required_tags = [str(tag_r) for tag_r in required_tags if tag_r is not None]
 
@@ -195,8 +228,14 @@ class MyWord:
             if "refl" in self.extra_tags:
                 required_tags.remove("refl")
 
-        required_tags.append(required_pos)
+            if "multianim" in self.extra_tags and "inan" in self.extra_tags:
+                required_tags.remove("inan")
 
+            if "multianim" in self.extra_tags and "anim" in self.extra_tags:
+                required_tags.remove("anim")
+
+        required_tags.append(required_pos)
+        required_tags = list(set(required_tags))
         return required_tags
 
     def get_excluded_tags(self):  #
@@ -220,7 +259,10 @@ class MyWord:
     def _get_noun_tags(self):
         cases_numbers = [[cn.tag.case, cn.tag.number] for cn in self.parses]
 
-        if "femn" in self.parse_chosen.tag:
+        if "Fixd" in self.parse_chosen.tag:
+            return []
+
+        elif "femn" in self.parse_chosen.tag:
             if not (
                     (
                             ["gent", "sing"] in cases_numbers and
@@ -289,10 +331,44 @@ class MyWord:
 
         return [tag_a for tag_a in tags_adjf if tag_a is not None]
 
+    def _try_tags_passed(self):
+        for tag in self.tags_passed:
+            if tag in MyWord.custom_tags:
+                self.extra_tags.append(tag)
+                self.tags_passed.remove(tag)
+
+        tags_set = set(self.tags_passed)
+        parses = [parse for parse in self.parses if tags_set in parse.tag]
+
+        if parses:
+            self.parses = parses
+            self.psos = [str(p.tag.POS) for p in self.parses]
+        else:
+            self.invalid_tags_passed = True
+            self.tags_passed = []
+
+    def _try_normal_form(self):
+        parses = [
+            parse for parse in self.parses if parse.normal_form == self.word.lower() and not any ([
+                not_nomn_case in str(parse.tag) for not_nomn_case in ["gent", "accs", "datv", "ablt", "loct"]
+            ])
+        ]
+
+        if parses:
+            self.parses = parses
+            self.psos = [str(p.tag.POS) for p in self.parses]
+
+    def _try_score(self, score=None):
+        if not score:
+            score = self.score
+
+        self.parses = [parse for parse in self.parses if parse.score > score]
+        self.psos = [str(p.tag.POS) for p in self.parses]
+
     def _try_register(self):
 
         if self.word_register == "get_register":
-            self.register = get_word_register(self.word)
+            self.word_register = get_word_register(self.word)
 
         title_tags = []
 
@@ -318,32 +394,13 @@ class MyWord:
             if self.word_register == "lower":
                 self.parses = parses
                 self.psos = [str(p.tag.POS) for p in self.parses]
-                self.register_tag = []
 
             for tag in title_tags:
                 for p in parses:
                     if tag in p.tag:
                         self.parses = parses
                         self.psos = [str(p.tag.POS) for p in self.parses]
-                        self.register_tag = [tag, ]
                         break
-
-    def _try_tags_passed(self):
-        tags_set = set(self.tags_passed)
-        parses = [parse for parse in self.parses if tags_set in parse.tag]
-
-        if parses:
-            self.parses = parses
-            self.psos = [str(p.tag.POS) for p in self.parses]
-        else:
-            self.invalid_tags_passed = True
-            self.tags_passed = []
-
-    def _try_normal_form(self):
-        parses = [parse for parse in self.parses if parse.normal_form == self.word]
-        if parses:
-            self.parses = parses
-            self.psos = [str(p.tag.POS) for p in self.parses]
 
     def _try_pos(self):
         parses = [parse for parse in self.parses if parse.tag.POS == self.pos]

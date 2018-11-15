@@ -3,7 +3,7 @@ from sqlalchemy import create_engine
 
 DB_PASSWORD = Config.get('DB.password')
 DB_HOST = Config.get('DB.host')
-DB = create_engine(
+engine = create_engine(
     'mysql+pymysql://root:{}@{}/syurbotdb'.format(DB_PASSWORD, DB_HOST),
     echo=True
 )

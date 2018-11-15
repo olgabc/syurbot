@@ -1,11 +1,10 @@
-from config.config import DB
+from config.config import engine
 import re
 import os
 from sqlalchemy import Table, MetaData
 
 
-
-metadata = MetaData(DB)
+metadata = MetaData(engine)
 sentences = Table('sentences', metadata, autoload=True)
 sentences_insert = sentences.insert()
 
