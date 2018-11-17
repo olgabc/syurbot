@@ -1,7 +1,11 @@
+from config.config import engine
 from libs.register import get_word_register
 import pymorphy2
+from sqlalchemy.orm import sessionmaker
+from db_classes import FreqDict
 
 morph = pymorphy2.MorphAnalyzer()
+Session = sessionmaker(bind=engine)
 
 
 class MyWord:
@@ -62,13 +66,17 @@ class MyWord:
         if self.pos:
             self._try_pos()
 
-        self.is_homonym = self._check_if_homonym()
+        self._check_if_homonym()
 
         if self.is_homonym and self.pos == "NOUN":
             self._try_score(0.1)
 
+        self._check_if_homonym()
+
         if self.is_homonym:
             self._try_freq_dict()
+
+        self._check_if_homonym()
 
         self.parse_chosen = self._choose_parse()
         self._get_extra_tags()
@@ -104,26 +112,12 @@ class MyWord:
         is_homonym = False
 
         if len(set(self.psos)) > 1:
-            is_homonym = "psos"
+            self.is_homonym = "psos"
+            return
 
-        elif self.pos == "NOUN":
-            animacies = [a.tag.animacy for a in self.parses if a.tag.animacy and a.tag.POS == self.pos]
-            genders = [ge.tag.gender for ge in self.parses if ge.tag.gender and ge.tag.POS == self.pos]
-
-            if "inan" not in self.tags_passed or "anim" not in self.tags_passed:
-
-                if len(set(animacies)) > 1:
-                    if len(set([n.normal_form for n in self.parses])) > 1:
-                        is_homonym = "animacy"
-                    else:
-                        self.extra_tags.append("multianim")
-
-            elif "masc" not in self.tags_passed or "neut" not in self.tags_passed or "femn" not in self.tags_passed:
-
-                if len(set(genders)) > 1:
-                    is_homonym = "gender"
-
-        return is_homonym
+        if len(set([parse.normal_form for parse in self.parses])) > 1:
+            self.is_homonym = "normal_form"
+            return
 
     def _choose_parse(self):
 
@@ -141,7 +135,7 @@ class MyWord:
         if not self.parse_chosen:
             return
 
-        if self.pos == "NOUN" and not self.is_homonym:
+        if self.pos == "NOUN":
             declension_tags = []
 
             if self.parse_chosen.tag.gender == "femn" and self.word[-1] == "ь":
@@ -154,6 +148,13 @@ class MyWord:
                 declension_tags = ["3_ii", ]
 
             self.extra_tags += declension_tags
+
+            animacies = [a.tag.animacy for a in self.parses if a.tag.animacy and a.tag.POS == self.pos]
+
+            if "inan" not in self.tags_passed or "anim" not in self.tags_passed:
+
+                if len(set(animacies)) > 1:
+                    self.extra_tags.append("multianim")
 
         elif self.pos in ["VERB", "INFN"] and self.word[-2:] in ["сь", "ся"]:
 
@@ -349,7 +350,7 @@ class MyWord:
 
     def _try_normal_form(self):
         parses = [
-            parse for parse in self.parses if parse.normal_form == self.word.lower() and not any ([
+            parse for parse in self.parses if parse.normal_form == self.word.lower() and not any([
                 not_nomn_case in str(parse.tag) for not_nomn_case in ["gent", "accs", "datv", "ablt", "loct"]
             ])
         ]
@@ -409,11 +410,15 @@ class MyWord:
             self.psos = [str(p.tag.POS) for p in self.parses]
 
     def _try_freq_dict(self):
-        for parse in self.parses:
-            pass
-        self.psos = [str(p.tag.POS) for p in self.parses]
-        self.pos = self._get_pos()
-        self.is_homonym = self._check_if_homonym()
+        parses = set([(str(parse.tag.POS), str(parse.normal_form)) for parse in self.parses])
+        session = Session()
+        freq_dict_query = session.query(FreqDict)
+        for parse_pos, parse_normal_form in parses:
+            print(parse_pos, parse_normal_form)
+            freq_dict_query.filter(FreqDict.lemma = parse_normal_form)
+            f = freq_dict_query.filter(and_(FreqDict.lemma=parse_normal_form, FreqDict.pos=parse_pos))
+
+
 
 
 # animacy - одушевленность

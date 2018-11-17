@@ -2,12 +2,15 @@ from config.config import engine
 import re
 import os
 from sqlalchemy import Table, MetaData
-
+from sqlalchemy.orm import sessionmaker
+from db_classes import FreqDict, WordsDict
+from syur_classes import MyWord
+import json
 
 metadata = MetaData(engine)
 sentences = Table('sentences', metadata, autoload=True)
 sentences_insert = sentences.insert()
-
+Session = sessionmaker(bind=engine)
 
 def split_book_by_sentences(name_without_extension, folder="books"):
     file_path = os.path.join(
@@ -61,3 +64,101 @@ def insert_sentences_to_db(name_without_extension, folder="books"):
             'source': name_without_extension
         })
 
+
+def add_freq_dict():
+    session = Session()
+    freq_dict_query = session.query(FreqDict)
+    words_dict_query = session.query(WordsDict)
+    old_freq_dict = words_dict_query.filter(WordsDict.words_dict_json.like('%"source": "freq_dict"%'))
+    old_freq_dict.delete(synchronize_session=False)
+
+    for row in freq_dict_query:
+        word = MyWord(
+            word=row.lemma,
+            tags=row.pos,
+            is_normal_form=True,
+            word_register="get_register"
+        )
+        if row.pos == "NOUN" and word.parses and len(word.parses) > 1:
+
+            for parse in word.parses:
+                tag = str(parse.tag).replace(" ", ",").split(",")
+
+                if "multianim" in word.all_tags:
+                    tag.append("multianim")
+                dict_row = {
+                    "lemma": row.lemma,
+                    "pos": row.pos,
+                    "all_tags": MyWord(
+                        word=row.lemma,
+                        tags=tag,
+                        is_normal_form=True,
+                        word_register="get_register"
+                    ).all_tags,
+                    "frequency": row.frequency,
+                    "source": "freq_dict"
+                }
+        else:
+            dict_row = {
+                "lemma": row.lemma,
+                "pos": row.pos,
+                "all_tags": word.all_tags,
+                "frequency": row.frequency,
+                "source": "freq_dict"
+            }
+
+        json_row = json.dumps(dict_row, ensure_ascii=False)
+        session.add(WordsDict(words_dict_json=json_row))
+
+    session.commit()
+    session.close()
+
+add_freq_dict()
+
+
+def add_dict(words, source, tags=None, is_normal_form=False, word_register="get_register"):
+
+    unique_words = set(words)
+    len_words = len(words)
+
+    if not tags:
+        tags = []
+
+    for word in unique_words:
+        word = MyWord(word, tags=tags, is_normal_form=is_normal_form, word_register=word_register)
+        frequency = words.count(word)/len_words
+
+        if word.parse_chosen:
+            print(
+                word.parse_chosen.normal_form,
+                row[frequency_dict.c.pos],
+                word.all_tags,
+                frequency,
+                source
+            )
+
+            for parse in word.parses:
+                tag = str(parse.tag).replace(" ", ",").split(",")
+
+                if "multianim" in word.all_tags:
+                    tag.append("multianim")
+                print(
+                    row[frequency_dict.c.lemma],
+                    row[frequency_dict.c.pos],
+                    MyWord(
+                        word=row[frequency_dict.c.lemma],
+                        tags=tag,
+                        is_normal_form=True,
+                        word_register="get_register"
+                    ).all_tags,
+                    row[frequency_dict.c.frequency],
+                    source
+                )
+        else:
+            print(
+                row[frequency_dict.c.lemma],
+                row[frequency_dict.c.pos],
+                word.all_tags,
+                row[frequency_dict.c.frequency],
+                source
+            )
