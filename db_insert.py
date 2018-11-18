@@ -8,9 +8,8 @@ from syur_classes import MyWord
 import json
 
 metadata = MetaData(engine)
-sentences = Table('sentences', metadata, autoload=True)
-sentences_insert = sentences.insert()
 Session = sessionmaker(bind=engine)
+
 
 def split_book_by_sentences(name_without_extension, folder="books"):
     file_path = os.path.join(
@@ -79,6 +78,8 @@ def add_freq_dict():
             is_normal_form=True,
             word_register="get_register"
         )
+        dict_row = ""
+
         if row.pos == "NOUN" and word.parses and len(word.parses) > 1:
 
             for parse in word.parses:
@@ -113,7 +114,10 @@ def add_freq_dict():
     session.commit()
     session.close()
 
-add_freq_dict()
+
+session = Session()
+session.add(FreqDict(lemma="нервически",pos="ADVB"))
+session.commit()
 
 
 def add_dict(words, source, tags=None, is_normal_form=False, word_register="get_register"):

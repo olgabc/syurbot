@@ -2,6 +2,7 @@ from config.config import engine
 from libs.register import get_word_register
 import pymorphy2
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy import and_
 from db_classes import FreqDict
 
 morph = pymorphy2.MorphAnalyzer()
@@ -70,15 +71,16 @@ class MyWord:
 
         if self.is_homonym and self.pos == "NOUN":
             self._try_score(0.1)
-
-        self._check_if_homonym()
+            self._check_if_homonym()
 
         if self.is_homonym:
             self._try_freq_dict()
+            self._check_if_homonym()
 
-        self._check_if_homonym()
+            if not self.pos:
+                self.pos = self._get_pos()
 
-        self.parse_chosen = self._choose_parse()
+        self._choose_parse()
         self._get_extra_tags()
         self._get_all_tags()
 
@@ -109,14 +111,16 @@ class MyWord:
 
     def _check_if_homonym(self):
 
-        is_homonym = False
-
         if len(set(self.psos)) > 1:
             self.is_homonym = "psos"
             return
 
-        if len(set([parse.normal_form for parse in self.parses])) > 1:
+        elif len(set([parse.normal_form for parse in self.parses])) > 1:
             self.is_homonym = "normal_form"
+            return
+
+        else:
+            self.is_homonym = False
             return
 
     def _choose_parse(self):
@@ -128,7 +132,8 @@ class MyWord:
 
         for w in self.parses:
             if tags_set in w.tag:
-                return w
+                self.parse_chosen = w
+                return
 
     def _get_extra_tags(self):
 
@@ -410,16 +415,26 @@ class MyWord:
             self.psos = [str(p.tag.POS) for p in self.parses]
 
     def _try_freq_dict(self):
-        parses = set([(str(parse.tag.POS), str(parse.normal_form)) for parse in self.parses])
+
+        parses = self.parses
         session = Session()
         freq_dict_query = session.query(FreqDict)
-        for parse_pos, parse_normal_form in parses:
-            print(parse_pos, parse_normal_form)
-            freq_dict_query.filter(FreqDict.lemma = parse_normal_form)
-            f = freq_dict_query.filter(and_(FreqDict.lemma=parse_normal_form, FreqDict.pos=parse_pos))
+        in_freq_dict_parses = []
 
+        for parse in parses:
+            parse_normal_form = str(parse.normal_form)
+            parse_pos = str(parse.tag.POS)
+            freq_dict_lemms = freq_dict_query.filter(
+                and_(FreqDict.lemma == parse_normal_form, FreqDict.pos == parse_pos)
+            )
+            fd_list = [fd_parse for fd_parse in freq_dict_lemms]
 
+            if fd_list:
+                in_freq_dict_parses.append(parse)
 
+        if in_freq_dict_parses:
+            self.parses = in_freq_dict_parses
+            self.psos = [str(p.tag.POS) for p in self.parses]
 
 # animacy - одушевленность
 # aspect - вид (совершенный не совершенный)
