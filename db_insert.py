@@ -1,74 +1,64 @@
-from config.config import engine
 import re
 import os
-from sqlalchemy import Table, MetaData
-from sqlalchemy.orm import sessionmaker
-from db_classes import FreqDict, WordsDict
+from syurbot_db.frequency import FrequencyModel
+from syurbot_db.word import WordModel
+from syurbot_db.db_session import SESSION
 from syur_classes import MyWord
 import json
 
-metadata = MetaData(engine)
-Session = sessionmaker(bind=engine)
 
-
-def split_book_by_sentences(name_without_extension, folder="books"):
+def load_some_text(name_without_extension, folder="books"):
     file_path = os.path.join(
         folder,
         "{}.txt".format(name_without_extension)
     )
     book = open(file_path)
-    book = book.read()
-    book = book.replace(
+    return book.read()
+
+
+def split_by_sentences(text):
+    text = text.replace(
         "\n", " "
     ).replace(
         "—", "–"
     ).replace(
         "…", "..."
     )
-    book = re.sub(r'([.!?])([^.])', r'\1@\2', book)
-    book = re.sub(r'@([^А-яA-z]*\b[а-яa-z])', r' \1', book)
-    book = re.sub(r'(\b[А-яA-z]{,3}\b)@', r'\1 ', book)
-    book = re.sub(r'(\s+)', " ", book)
-    book = re.sub(r'(\b-\s|\s-\b)', " - ", book)
-    book = re.sub(r'(@\s)', "@", book)
-    book = book.split("@")
-    book_indexes = range(len(book))
+    text = re.sub(r'([.!?])([^.])', r'\1@\2', text)
+    text = re.sub(r'@([^А-яA-z]*\b[а-яa-z])', r' \1', text)
+    text = re.sub(r'(\b[А-яA-z]{,3}\b)@', r'\1 ', text)
+    text = re.sub(r'(\s+)', " ", text)
+    text = re.sub(r'(\b-\s|\s-\b)', " - ", text)
+    text = re.sub(r'(@\s)', "@", text)
+    text = text.split("@")
+    text_indexes = range(len(text))
 
-    for i in book_indexes:
+    for i in text_indexes:
 
-        if "«" in book[i] and "»" not in book[i]:
+        if "«" in text[i] and "»" not in text[i]:
 
             for cnt in range(1, 11):
-                book[i] += " {}".format(book[i+cnt])
-                book[i+cnt] = "to_delete"
-                if "»" in book[i]:
+                text[i] += " {}".format(text[i+cnt])
+                text[i+cnt] = "to_delete"
+                if "»" in text[i]:
                     break
 
-    return [sentence for sentence in book if sentence != "to_delete"]
+    return [sentence for sentence in text if sentence != "to_delete"]
 
 
-def insert_sentences_to_db(name_without_extension, folder="books"):
-    sentences = split_book_by_sentences(name_without_extension, folder)
+def split_by_words(text):
 
-    for sentence in sentences:
-        sentence_words = re.sub(r'[^-A-яA-z\s\d]|(?<![A-яA-z](?=.[A-яA-z]))-', "", sentence)
-        sentence_words = re.sub(r'(\s+)', " ", sentence_words)
-        sentence_words = re.sub(r'(^\s|\s$)', "", sentence_words)
-        sentence_words = sentence_words.split(" ")
-        sentence_length = len(sentence_words)
-
-        sentences_insert.execute({
-            'sentence': sentence,
-            'sentence_length': sentence_length,
-            'source': name_without_extension
-        })
+    text = re.sub(r'[^-A-яA-z\s\d]|(?<![A-яA-z](?=.[A-яA-z]))-', "", text)
+    text = re.sub(r'(\s+)', " ", text)
+    text = re.sub(r'(^\s|\s$)', "", text)
+    words = text.split(" ")
+    return words
 
 
 def add_freq_dict():
-    session = Session()
-    freq_dict_query = session.query(FreqDict)
-    words_dict_query = session.query(WordsDict)
-    old_freq_dict = words_dict_query.filter(WordsDict.words_dict_json.like('%"source": "freq_dict"%'))
+    freq_dict_query = SESSION.query(FrequencyModel)
+    words_dict_query = SESSION.query(WordModel)
+    old_freq_dict = words_dict_query.filter(WordModel.word_json.like('%"source": "freq_dict"%'))
     old_freq_dict.delete(synchronize_session=False)
 
     for row in freq_dict_query:
@@ -109,20 +99,28 @@ def add_freq_dict():
             }
 
         json_row = json.dumps(dict_row, ensure_ascii=False)
-        session.add(WordsDict(words_dict_json=json_row))
-
-    session.commit()
-    session.close()
-
-
-session = Session()
-session.add(FreqDict(lemma="нервически",pos="ADVB"))
-session.commit()
+        SESSION.add(WordModel(word_json=json_row))
+    
+    SESSION.commit()
+    SESSION.close()
 
 
-def add_dict(words, source, tags=None, is_normal_form=False, word_register="get_register"):
+def add_dict(text, source, tags=None, is_normal_form=False, word_register="get_register"):
 
-    unique_words = set(words)
+    if word_register == "get_register":
+        words = {}
+        sentences = split_by_sentences(text)
+
+        for sentence in sentences:
+            sentence_words = split_by_words(sentence)
+            words[sentence_words[0]] = None
+
+            for word in sentence_words[1:]:
+                words[word] = "get_register"
+
+    print(words, text)
+    
+    unique_words = set(text.split_by_words())
     len_words = len(words)
 
     if not tags:
@@ -166,3 +164,23 @@ def add_dict(words, source, tags=None, is_normal_form=False, word_register="get_
                 row[frequency_dict.c.frequency],
                 source
             )
+     """
+add_dict("Вася обиделся. Паша ушел", source=None)
+
+
+def insert_sentences_to_db(name_without_extension, folder="books"):
+    sentences = split_by_sentences(name_without_extension, folder)
+
+    for sentence in sentences:
+        sentence_words = re.sub(r'[^-A-яA-z\s\d]|(?<![A-яA-z](?=.[A-яA-z]))-', "", sentence)
+        sentence_words = re.sub(r'(\s+)', " ", sentence_words)
+        sentence_words = re.sub(r'(^\s|\s$)', "", sentence_words)
+        sentence_words = sentence_words.split(" ")
+        sentence_length = len(sentence_words)
+
+        #sentences_insert.execute({
+            #'sentence': sentence,
+            #'sentence_length': sentence_length,
+            #'source': name_without_extension
+        #})
+

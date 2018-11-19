@@ -1,12 +1,11 @@
-from config.config import engine
 from libs.register import get_word_register
 import pymorphy2
-from sqlalchemy.orm import sessionmaker
+from syurbot_db.db_session import SESSION
+from syurbot_db.frequency import FrequencyModel
 from sqlalchemy import and_
-from db_classes import FreqDict
+from config.config import PSOS_TO_CHECK, UNCHANGABLE_WORDS
 
 morph = pymorphy2.MorphAnalyzer()
-Session = sessionmaker(bind=engine)
 
 
 class MyWord:
@@ -417,15 +416,14 @@ class MyWord:
     def _try_freq_dict(self):
 
         parses = self.parses
-        session = Session()
-        freq_dict_query = session.query(FreqDict)
+        freq_dict_query = SESSION.query(FrequencyModel)
         in_freq_dict_parses = []
 
         for parse in parses:
             parse_normal_form = str(parse.normal_form)
             parse_pos = str(parse.tag.POS)
             freq_dict_lemms = freq_dict_query.filter(
-                and_(FreqDict.lemma == parse_normal_form, FreqDict.pos == parse_pos)
+                and_(FrequencyModel.lemma == parse_normal_form, FrequencyModel.pos == parse_pos)
             )
             fd_list = [fd_parse for fd_parse in freq_dict_lemms]
 
@@ -435,6 +433,23 @@ class MyWord:
         if in_freq_dict_parses:
             self.parses = in_freq_dict_parses
             self.psos = [str(p.tag.POS) for p in self.parses]
+
+    def get_word_type(
+            self,
+            psos_to_check=PSOS_TO_CHECK,
+            unchangable_words=UNCHANGABLE_WORDS
+    ):
+        if any([str(parse.normal_form) in unchangable_words for parse in self.parses]):
+            return "unchangable"
+
+        if not self.pos:
+            return "trash"
+
+        if self.pos not in psos_to_check:
+            return "fixed"
+
+        else:
+            return "changable"
 
 # animacy - одушевленность
 # aspect - вид (совершенный не совершенный)
