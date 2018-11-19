@@ -38,6 +38,8 @@ class MyWord:
         self.invalid_tags_passed = False
         self.extra_tags = []
         self.all_tags = []
+        self.required_tags = []
+        self.inflect_tags = []
 
         if [parse for parse in self.parses if "UNKN" in parse.tag]:
             self.parses = None
@@ -82,6 +84,10 @@ class MyWord:
         self._choose_parse()
         self._get_extra_tags()
         self._get_all_tags()
+
+        if self.parse_chosen:
+            self.required_tags = self.get_required_tags("default")
+            self.inflect_tags = self.get_inflect_tags()
 
     def _get_pos(self):
 
@@ -203,9 +209,9 @@ class MyWord:
                 required_tags.append("Ms-f")
 
             if extra_noun_tags:
-                for tag in extra_noun_tags:
-                    if tag in self.parse_chosen:
-                        required_tags.append(tag)
+                for noun_tag in extra_noun_tags:
+                    if noun_tag in self.parse_chosen.tag:
+                        required_tags.append(noun_tag)
 
         if self.pos in ["VERB", "INFN", "PRTS", "PRTF", "GRND"]:
             required_pos = "INFN"
@@ -218,9 +224,9 @@ class MyWord:
             required_pos = "ADJF"
 
             if extra_adjf_tags:
-                for tag in extra_adjf_tags:
-                    if tag in self.parse_chosen:
-                        required_tags.append(tag)
+                for adjf_tag in extra_adjf_tags:
+                    if adjf_tag in self.parse_chosen.tag:
+                        required_tags.append(adjf_tag)
 
         required_tags = [str(tag_r) for tag_r in required_tags if tag_r is not None]
 
@@ -233,15 +239,15 @@ class MyWord:
             if "refl" in self.extra_tags:
                 required_tags.remove("refl")
 
-            if "multianim" in self.extra_tags and "inan" in self.extra_tags:
+            if "multianim" in self.extra_tags and "inan" in required_tags:
                 required_tags.remove("inan")
 
-            if "multianim" in self.extra_tags and "anim" in self.extra_tags:
+            if "multianim" in self.extra_tags and "anim" in required_tags:
                 required_tags.remove("anim")
 
         required_tags.append(required_pos)
         required_tags = list(set(required_tags))
-        return required_tags
+        return [str(tag) for tag in required_tags]
 
     def get_excluded_tags(self):  #
         if self.word_register == "lower":
@@ -422,6 +428,13 @@ class MyWord:
         for parse in parses:
             parse_normal_form = str(parse.normal_form)
             parse_pos = str(parse.tag.POS)
+
+            if parse_pos in ["VERB", "GRND"]:
+                parse_pos = "INFN"
+
+            elif parse_pos in ["ADJS", "COMP", "PRTS", "PRTF"]:
+                parse_pos = "ADJF"
+
             freq_dict_lemms = freq_dict_query.filter(
                 and_(FrequencyModel.lemma == parse_normal_form, FrequencyModel.pos == parse_pos)
             )

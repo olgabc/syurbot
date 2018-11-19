@@ -26,20 +26,16 @@ for file in os.listdir("books"): #
 ##asdf юродствовать ('futr',) INFN
 #d = "ван"; x = MyWord(d, "VERB"); print("d", x.get_required_tags())
 
-c = "нервически"; w = MyWord(
+c = "паша"; w = MyWord(
     c,
-    tags=[],
-    word_register="get_register",
+    tags=["NOUN"],
+    word_register={},
     #is_normal_form=True
 ) #print("obj", w.parse_chosen.tag.number, w.parse_chosen.tag.case), pprint(w.parses)
 print("morph_parse:")
 pprint(morph.parse(c))
-pprint([
-    w.__dict__,
-    ("i", w.get_inflect_tags())
-    #("d", d, x.object.inflect(set(w.get_inflect_tags())).word)
-])
-print(("r", w.get_required_tags()))
+pprint(w.__dict__)
+
 #print("check_word", check_word(c))
 #print(check_sentence("Для Зои Карловны был чудом"))
 #print(generate_word(pos="VERB", required_tags=["perf", "intr"], inflect_tags=("futr","2per"), freq=None, source="freq"))
