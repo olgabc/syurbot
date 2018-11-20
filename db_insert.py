@@ -129,7 +129,7 @@ def add_freq_dict():
                 dict_rows.append(dict_row)
 
     for d_row in dict_rows:
-        d_row["tags"] = list(d_row["tags"])
+        d_row["tags"] = sorted(list(d_row["tags"]))
         json_row = json.dumps(d_row, ensure_ascii=False)
         SESSION.add(WordModel(word_json=json_row))
     
@@ -218,7 +218,7 @@ def add_dict(text, source, tags=None, is_normal_form=False, word_register="get_r
                     dict_rows.append(dict_row)
 
     for d_row in dict_rows:
-        d_row["tags"] = list(d_row["tags"])
+        d_row["tags"] = sorted(list(d_row["tags"]))
         print(d_row)
 
 
@@ -238,10 +238,8 @@ def insert_sentences_to_db(name_without_extension, folder="books"):
             #'source': name_without_extension
         #})
 
-a = SESSION.query(FrequencyModel).filter(and_(FrequencyModel.lemma.like('%нервически%'),FrequencyModel.pos == "ADVB"))
-for aa in a: print(aa)
 #SESSION.COMMIT()
 #SESSION.add(FrequencyModel(word_json=json_row))
 #SESSION.add(WordModel(word_json=json_row))
-add_freq_dict()
-#add_dict("Вася обиделся. Паша ушел к испанке", source=None)
+#add_freq_dict()
+add_dict("Вася обиделся. Паша ушел к испанке", source=None)
