@@ -238,8 +238,6 @@ def insert_sentences_to_db(name_without_extension, folder="books"):
             #'source': name_without_extension
         #})
 
-#SESSION.COMMIT()
-#SESSION.add(FrequencyModel(word_json=json_row))
-#SESSION.add(WordModel(word_json=json_row))
-#add_freq_dict()
+
+add_freq_dict()
 add_dict("Вася обиделся. Паша ушел к испанке", source=None)
