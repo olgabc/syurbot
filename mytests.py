@@ -26,7 +26,7 @@ for file in os.listdir("books"): #
 ##asdf юродствовать ('futr',) INFN
 #d = "ван"; x = MyWord(d, "VERB"); print("d", x.get_required_tags())
 
-c = "паша"; w = MyWord(
+c = "истории"; w = MyWord(
     c,
     tags=["NOUN"],
     word_register={},
