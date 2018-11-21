@@ -1,60 +1,10 @@
 import re
-import os
 from syurbot_db.frequency import FrequencyModel
 from syurbot_db.word import WordModel
 # from syurbot_db.sentence import SentenceModel
-from sqlalchemy.sql import and_
 from syurbot_db.db_session import SESSION
 from syur_classes import MyWord
-import json
-
-
-def load_some_text(name_without_extension, folder="books"):
-    file_path = os.path.join(
-        folder,
-        "{}.txt".format(name_without_extension)
-    )
-    book = open(file_path)
-    return book.read()
-
-
-def split_by_sentences(text):
-    text = text.replace(
-        "\n", " "
-    ).replace(
-        "—", "–"
-    ).replace(
-        "…", "..."
-    )
-    text = re.sub(r'([.!?])([^.])', r'\1@\2', text)
-    text = re.sub(r'@([^А-яA-z]*\b[а-яa-z])', r' \1', text)
-    text = re.sub(r'(\b[А-яA-z]{,3}\b)@', r'\1 ', text)
-    text = re.sub(r'(\s+)', " ", text)
-    text = re.sub(r'(\b-\s|\s-\b)', " - ", text)
-    text = re.sub(r'(@\s)', "@", text)
-    text = text.split("@")
-    text_indexes = range(len(text))
-
-    for i in text_indexes:
-
-        if "«" in text[i] and "»" not in text[i]:
-
-            for cnt in range(1, 11):
-                text[i] += " {}".format(text[i+cnt])
-                text[i+cnt] = "to_delete"
-                if "»" in text[i]:
-                    break
-
-    return [sentence for sentence in text if sentence != "to_delete"]
-
-
-def split_by_words(text):
-
-    text = re.sub(r'[^-A-яA-z\s\d]|(?<![A-яA-z](?=.[A-яA-z]))-', "", text)
-    text = re.sub(r'(\s+)', " ", text)
-    text = re.sub(r'(^\s|\s$)', "", text)
-    words = text.split(" ")
-    return words
+from libs.funcs import split_by_words, split_by_sentences
 
 
 def add_freq_dict():
@@ -75,12 +25,10 @@ def add_freq_dict():
         print("word:", word.word)
 
         if word.parses:
-            frequency = (row.frequency or 0) / len(set([(w.normal_form, w.tag.POS) for w in word.parses]))
+            frequency = (row.frequency or 1) / len(set([(w.normal_form, w.tag.POS) for w in word.parses]))
 
             if "multianim" in word.all_tags:
                 frequency = frequency / 2
-        else:
-            frequency = 1
 
         if row.pos == "NOUN" and word.parses and len(word.parses) > 1:
 
@@ -129,9 +77,8 @@ def add_freq_dict():
                 dict_rows.append(dict_row)
 
     for d_row in dict_rows:
-        d_row["tags"] = sorted(list(d_row["tags"]))
-        json_row = json.dumps(d_row, ensure_ascii=False)
-        SESSION.add(WordModel(word_json=json_row))
+        d_row["tags"] = str(sorted(list(d_row["tags"])))
+        # SESSION.add(WordModel(word_json=json_row))
     
     SESSION.commit()
     SESSION.close()
@@ -140,9 +87,8 @@ def add_freq_dict():
 def add_dict(text, source, tags=None, is_normal_form=False, word_register="get_register"):
 
     words_dict_query = SESSION.query(WordModel)
-    old_dict = words_dict_query.filter(WordModel.word_json.like('%"source": "{}"%'.format(source)))
+    old_dict = words_dict_query.filter(WordModel.source == source)
     old_dict.delete(synchronize_session=False)
-    dict_rows = []
 
     if not tags:
         tags = []
@@ -155,71 +101,67 @@ def add_dict(text, source, tags=None, is_normal_form=False, word_register="get_r
             lemms.append({"lemma": sentence_words[0], "register": None})
 
             for sentence_word in sentence_words[1:]:
-                lemms.append({"lemma": sentence_word, "register": "get_register"})
+                lemms.append({"lemma": sentence_word, "register": word_register})
+
+    dict_rows = []
+    myword_instances_list = []
 
     for lemma in lemms:
-        word = MyWord(lemma["lemma"], tags=tags, is_normal_form=is_normal_form, word_register=lemma["register"])
+        word_0 = MyWord(
+            lemma["lemma"],
+            tags=tags,
+            is_normal_form=is_normal_form,
+            word_register=lemma["register"]
+        )
 
-        if word.parses:
-            frequency = 1 / len(set([(w.normal_form, w.tag.POS) for w in word.parses]))
+        if not word_0.parses:
+            continue
 
-            if "multianim" in word.all_tags:
-                frequency = frequency / 2
-        else:
-            frequency = 1
+        word_forms = set([(w.normal_form, w.tag.POS) for w in word_0.parses])
 
-        lemma["frequency"] = str(frequency)
+        frequency_0 = 1 / len(word_forms)
 
-        if word.parse_chosen and "multianim" not in word.all_tags:
+        for word_form in word_forms:
 
-            dict_row = {
-                "lemma": word.parse_chosen.normal_form,
-                "pos": word.parse_chosen.tag.POS,
-                "tags": word.required_tags + word.extra_tags,
-                "frequency": lemma["frequency"],
-                "source": source
-            }
+            word_1 = MyWord(
+                word=word_form[0],
+                tags=word_form[1],
+                is_normal_form=True,
+                word_register=lemma["register"]
+            )
+            frequency = frequency_0 / len(word_1.parses)
 
-            if word.parse_chosen and word.parse_chosen.tag.animacy:
-                dict_row["tags"].append(word.parse_chosen.tag.animacy)
+            if len(word_1.parses) == 1:
+                word_2 = word_1
+                myword_instances_list.append((word_2, frequency))
 
-            dict_row["tags"] = set(dict_row["tags"])
-
-            if dict_row not in dict_rows:
-                dict_rows.append(dict_row)
-
-        else:
-            for parse in word.parses:
-                tag = str(parse.tag).replace(" ", ",").split(",")
-
-                if "multianim" in word.all_tags:
-                    tag.append("multianim")
-
-                myword = MyWord(
-                        word=parse.word,
-                        tags=tag,
+            else:
+                for parse in word_1.parses:
+                    parse_tag = str(parse.tag).replace(" ", ",").split(",") + word_1.extra_tags
+                    word_2 = MyWord(
+                        word=word_form[0],
+                        tags=parse_tag,
                         is_normal_form=True,
-                        word_register=word_register
+                        word_register=lemma["register"]
                     )
-                dict_row = {
-                    "lemma": parse.normal_form,
-                    "pos": parse.tag.POS,
-                    "tags": myword.required_tags + myword.extra_tags,
-                    "frequency": lemma["frequency"],
-                    "source": source
-                }
+                    if word_2.parse_chosen:
+                        myword_instances_list.append((word_2, frequency))
 
-                if myword.parse_chosen and myword.parse_chosen.tag.animacy:
-                    dict_row["tags"].append(myword.parse_chosen.tag.animacy)
+    for myword_instance in myword_instances_list:
+        dict_row = ({
+            "word": myword_instance[0].word,
+            "tags_num": 0,
+            "tags_info": sorted(list(set(myword_instance[0].required_tags + myword_instance[0].extra_tags))),
+            "frequency": myword_instance[1]
+        })
+        dict_row["pos"] = dict_row["tags_info"][0]
 
-                dict_row["tags"] = set(dict_row["tags"])
-
-                if dict_row not in dict_rows:
-                    dict_rows.append(dict_row)
+        if not dict_row in dict_rows:
+            dict_rows.append(dict_row)
 
     for d_row in dict_rows:
-        d_row["tags"] = sorted(list(d_row["tags"]))
         print(d_row)
+        #SESSION.add
 
 
 def insert_sentences_to_db(name_without_extension, folder="books"):
@@ -239,5 +181,5 @@ def insert_sentences_to_db(name_without_extension, folder="books"):
         #})
 
 
-add_freq_dict()
-add_dict("Вася обиделся. Паша ушел к испанке", source=None)
+#add_freq_dict()
+add_dict("Вася обиделся. Обидевшийся, обозленный и зеленый Паша ушел к испанке", source=None)

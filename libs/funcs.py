@@ -1,0 +1,77 @@
+import re
+import os
+
+
+def get_word_register(word):
+    if word.islower():
+        return "lower"
+
+    elif word.istitle():
+        return "title"
+
+    elif word.isupper():
+        return "upper"
+
+
+def replace_with_case(word_f, word_r):
+    if word_f.islower():
+        return word_f.replace(word_f, word_r.lower())
+
+    elif word_f.istitle():
+        return word_f.replace(word_f, word_r.capitalize())
+
+    elif word_f.isupper():
+        return word_f.replace(word_f, word_r.upper())
+
+
+def print_if(to_print, pattern='', word=''):
+    if to_print:
+        print("{}, {}".format(pattern, word))
+
+
+def load_some_text(name_without_extension, folder="books"):
+    file_path = os.path.join(
+        folder,
+        "{}.txt".format(name_without_extension)
+    )
+    book = open(file_path)
+    return book.read()
+
+
+def split_by_sentences(text):
+    text = text.replace(
+        "\n", " "
+    ).replace(
+        "—", "–"
+    ).replace(
+        "…", "..."
+    )
+    text = re.sub(r'([.!?])([^.])', r'\1@\2', text)
+    text = re.sub(r'@([^А-яA-z]*\b[а-яa-z])', r' \1', text)
+    text = re.sub(r'(\b[А-яA-z]{,3}\b)@', r'\1 ', text)
+    text = re.sub(r'(\s+)', " ", text)
+    text = re.sub(r'(\b-\s|\s-\b)', " - ", text)
+    text = re.sub(r'(@\s)', "@", text)
+    text = text.split("@")
+    text_indexes = range(len(text))
+
+    for i in text_indexes:
+
+        if "«" in text[i] and "»" not in text[i]:
+
+            for cnt in range(1, 11):
+                text[i] += " {}".format(text[i+cnt])
+                text[i+cnt] = "to_delete"
+                if "»" in text[i]:
+                    break
+
+    return [sentence for sentence in text if sentence != "to_delete"]
+
+
+def split_by_words(text):
+
+    text = re.sub(r'[^-A-яA-z\s\d]|(?<![A-яA-z](?=.[A-яA-z]))-', "", text)
+    text = re.sub(r'(\s+)', " ", text)
+    text = re.sub(r'(^\s|\s$)', "", text)
+    words = text.split(" ")
+    return words

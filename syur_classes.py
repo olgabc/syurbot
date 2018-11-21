@@ -1,4 +1,4 @@
-from libs.register import get_word_register
+from libs.funcs import get_word_register
 import pymorphy2
 from syurbot_db.db_session import SESSION
 from syurbot_db.frequency import FrequencyModel
@@ -52,6 +52,7 @@ class MyWord:
             self.tags_passed = [self.tags_passed, ]
 
         if self.tags_passed:
+            self.tags_passed = [str(tag) for tag in self.tags_passed]
             self._try_tags_passed()
 
         if is_normal_form:
@@ -166,7 +167,7 @@ class MyWord:
                 if len(set(animacies)) > 1:
                     self.extra_tags.append("multianim")
 
-        elif self.pos in ["VERB", "INFN"] and self.word[-2:] in ["сь", "ся"]:
+        elif self.pos in ["VERB", "INFN", "GRND", "PRTF", "PRTF"] and self.word[-2:] in ["сь", "ся"]:
 
             refl_tags = ["refl", ]
             self.extra_tags += refl_tags
@@ -344,6 +345,12 @@ class MyWord:
 
     def _try_tags_passed(self):
         for tag in self.tags_passed:
+            if "multianim" in self.tags_passed and "inan" in self.tags_passed:
+                self.extra_tags.append("inan")
+
+            if "multianim" in self.tags_passed and "anim" in self.tags_passed:
+                self.extra_tags.append("anim")
+
             if tag in MyWord.custom_tags:
                 self.extra_tags.append(tag)
                 self.tags_passed.remove(tag)
@@ -447,7 +454,7 @@ class MyWord:
             self.parses = in_freq_dict_parses
             self.psos = [str(p.tag.POS) for p in self.parses]
 
-    def get_word_type(
+    def get_check_result(
             self,
             psos_to_check=PSOS_TO_CHECK,
             unchangable_words=UNCHANGABLE_WORDS

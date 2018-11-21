@@ -3,7 +3,7 @@ import re
 import os
 
 
-def generate_word(pos="", required_tags=None, inflect_tags=None, freq=None, source="freq"):
+def generate_word(required_tags=None, inflect_tags=None, freq=None, source="freq"):
     if pos in ["VERB", "PRTS", "PRTF", "GRND"]:
         pos = "INFN"
 

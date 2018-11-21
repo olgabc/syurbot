@@ -26,11 +26,11 @@ for file in os.listdir("books"): #
 ##asdf юродствовать ('futr',) INFN
 #d = "ван"; x = MyWord(d, "VERB"); print("d", x.get_required_tags())
 
-c = "истории"; w = MyWord(
+c = "испанка"; w = MyWord(
     c,
-    tags=["NOUN"],
+    tags='ADJF,inan,masc,sing,accs'.split(","),
     word_register={},
-    #is_normal_form=True
+    is_normal_form=True
 ) #print("obj", w.parse_chosen.tag.number, w.parse_chosen.tag.case), pprint(w.parses)
 print("morph_parse:")
 pprint(morph.parse(c))
