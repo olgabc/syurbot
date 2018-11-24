@@ -145,8 +145,8 @@ class MyWord:
         if not self.pos or self.is_homonym:
             return
 
-        tag_list = [not_custom_tag for not_custom_tag in self.tags_passed if not_custom_tag not in MyWord.custom_tags]
-        tags_set = set(tag_list)
+        tags_list = [tag for tag in self.tags_passed if tag not in MyWord.custom_tags]
+        tags_set = set(tags_list)
 
         for w in self.parses:
             if tags_set in w.tag:

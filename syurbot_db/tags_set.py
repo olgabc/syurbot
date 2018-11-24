@@ -12,4 +12,3 @@ class TagsSetModel(Base):
         return "<TagsSetModel(tags_set={})>".format(
             self.tags_set
         )
-
