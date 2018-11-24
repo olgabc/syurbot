@@ -6,10 +6,10 @@ Base = declarative_base()
 class FrequencyModel(Base):
     __tablename__ = "frequency"
     id = Column(Integer, primary_key=True)
-    lemma = Column(String)
-    dict_pos = Column(String)
-    pos = Column(String)
-    by_hands_tags = Column(String)
+    lemma = Column(String(50))
+    dict_pos = Column(String(45))
+    pos = Column(String(4))
+    by_hands_tags = Column(String(50))
     frequency = Column(Float)
 
     def __repr__(self):

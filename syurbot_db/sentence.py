@@ -6,7 +6,7 @@ Base = declarative_base()
 class SentenceModel(Base):
     __tablename__ = "sentence"
     id = Column(Integer, primary_key=True)
-    sentence = Column(String)
+    sentence = Column(String(5000))
     sentence_length = Column(Integer)
     fixed_words_qty = Column(Integer)
     trash_words_qty = Column(Integer)

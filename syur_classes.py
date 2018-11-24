@@ -1,3 +1,6 @@
+#!/usr/bin/python
+# # -*- coding: utf-8 -*-
+
 from libs.funcs import get_word_register
 import pymorphy2
 from syurbot_db.db_session import SESSION
@@ -10,6 +13,7 @@ morph = pymorphy2.MorphAnalyzer()
 
 class MyWord:
     custom_tags = ["3_ii", "3_only", "refl", "multianim"]
+    required_tags_params = ""
 
     def __init__(
             self,
@@ -37,9 +41,11 @@ class MyWord:
         self.tags_passed = tags
         self.invalid_tags_passed = False
         self.extra_tags = []
+        self.custom_tags = []
         self.all_tags = []
         self.required_tags = []
         self.inflect_tags = []
+        self._capitalized_tags = []
 
         if [parse for parse in self.parses if "UNKN" in parse.tag]:
             self.parses = None
@@ -83,11 +89,16 @@ class MyWord:
                 self.pos = self._get_pos()
 
         self._choose_parse()
-        self._get_extra_tags()
-        self._get_all_tags()
 
         if self.parse_chosen:
-            self.required_tags = self.get_required_tags("default")
+            self._get_capitalized_tags()
+            self._get_custom_tags()
+            self._get_all_tags()
+            
+            if MyWord.required_tags_params == "add_db_rows":
+                return 
+            
+            self.required_tags = self.get_required_tags()
             self.inflect_tags = self.get_inflect_tags()
 
     def _get_pos(self):
@@ -134,85 +145,68 @@ class MyWord:
         if not self.pos or self.is_homonym:
             return
 
-        tags_set = set(self.tags_passed)
+        tag_list = [not_custom_tag for not_custom_tag in self.tags_passed if not_custom_tag not in MyWord.custom_tags]
+        tags_set = set(tag_list)
 
         for w in self.parses:
             if tags_set in w.tag:
                 self.parse_chosen = w
                 return
 
-    def _get_extra_tags(self):
+    def _get_capitalized_tags(self):
+        capitalized_tags = str(self.parse_chosen.tag).replace(" ", ",").split(",")
+        capitalized_tags = [
+            tag for tag in capitalized_tags if (
+                    get_word_register(tag) != "upper" and
+                    get_word_register(tag) != "lower"
+            )
+        ]
+        self._capitalized_tags = capitalized_tags
 
-        if not self.parse_chosen:
-            return
+    def _get_custom_tags(self):
 
         if self.pos == "NOUN":
             declension_tags = []
 
-            if self.parse_chosen.tag.gender == "femn" and self.word[-1] == "ь":
-                declension_tags = ["3_ii", "3_only"]
-
-            elif self.parse_chosen.tag.gender == "femn" and self.parse_chosen.normal_form[-1] == "ь":
+            if self.parse_chosen.tag.gender == "femn" and self.parse_chosen.normal_form[-1] == "ь":
                 declension_tags = ["3_ii", "3_only"]
 
             elif self.parse_chosen.normal_form[-2:] in ["ия", "ие", "ий"]:
                 declension_tags = ["3_ii", ]
 
-            self.extra_tags += declension_tags
+            self.custom_tags += declension_tags
 
             animacies = [a.tag.animacy for a in self.parses if a.tag.animacy and a.tag.POS == self.pos]
 
             if "inan" not in self.tags_passed or "anim" not in self.tags_passed:
 
                 if len(set(animacies)) > 1:
-                    self.extra_tags.append("multianim")
+                    self.custom_tags.append("multianim")
 
         elif self.pos in ["VERB", "INFN", "GRND", "PRTF", "PRTF"] and self.word[-2:] in ["сь", "ся"]:
 
             refl_tags = ["refl", ]
-            self.extra_tags += refl_tags
+            self.custom_tags += refl_tags
 
-        self.extra_tags = list(set(self.extra_tags))
+        self.custom_tags = list(set(self.custom_tags))
         return
 
     def _get_all_tags(self):
 
-        if not self.parse_chosen:
-            return []
-
         tags = str(self.parse_chosen.tag).replace(" ", ",").split(",")
+        tags += self.custom_tags
 
-        if self.extra_tags:
-            tags += self.extra_tags
-
-        self.all_tags += tags
-        self.all_tags = list(set(self.all_tags))
+        self.all_tags = sorted(list(set(tags)))
+        self.all_tags = tags
         return
 
-    def get_required_tags(self, extra_tags=None):
-        extra_noun_tags = ["Abbr", "Name", "Patr", "Surn", "Geox", "Orgn", "Trad"]
-        extra_adjf_tags = ["Anum", ]
-
-        if not extra_tags == "default":
-            extra_noun_tags = []
-            extra_adjf_tags = []
+    def get_required_tags(self):
 
         required_tags = []
         required_pos = self.pos
 
         if self.pos == "NOUN":  # or self.word in ["он", "она", "оно", "они"]
             required_tags = [self.parse_chosen.tag.animacy, self.parse_chosen.tag.gender]
-
-            if "Fixd" in self.parse_chosen.tag:
-                required_tags.append("Fixd")
-
-            if "Ms-f" in self.parse_chosen.tag:
-                required_tags.append("Ms-f")
-
-            if extra_noun_tags:
-                for noun_tag in extra_noun_tags:
-                    if noun_tag in self.parse_chosen.tag:
-                        required_tags.append(noun_tag)
 
         if self.pos in ["VERB", "INFN", "PRTS", "PRTF", "GRND"]:
             required_pos = "INFN"
@@ -224,26 +218,22 @@ class MyWord:
         if self.pos in ["ADJS", "COMP"]:
             required_pos = "ADJF"
 
-            if extra_adjf_tags:
-                for adjf_tag in extra_adjf_tags:
-                    if adjf_tag in self.parse_chosen.tag:
-                        required_tags.append(adjf_tag)
-
         required_tags = [str(tag_r) for tag_r in required_tags if tag_r is not None]
 
-        if self.extra_tags:
-            required_tags += self.extra_tags
+        if self.custom_tags:
 
-            if self.word[-1:] != "ь" and "3_only" in self.extra_tags:
+            required_tags += self.custom_tags
+
+            if self.word[-1:] != "ь" and "3_only" in self.custom_tags:
                 required_tags.remove("3_only")
 
-            if "refl" in self.extra_tags:
+            if "refl" in self.custom_tags:
                 required_tags.remove("refl")
 
-            if "multianim" in self.extra_tags and "inan" in required_tags:
+            if "multianim" in self.custom_tags and "inan" in required_tags:
                 required_tags.remove("inan")
 
-            if "multianim" in self.extra_tags and "anim" in required_tags:
+            if "multianim" in self.custom_tags and "anim" in required_tags:
                 required_tags.remove("anim")
 
         required_tags.append(required_pos)
@@ -352,10 +342,11 @@ class MyWord:
                 self.extra_tags.append("anim")
 
             if tag in MyWord.custom_tags:
-                self.extra_tags.append(tag)
+                self.custom_tags.append(tag)
                 self.tags_passed.remove(tag)
 
-        tags_set = set(self.tags_passed)
+        tag_list = [not_custom_tag for not_custom_tag in self.tags_passed if not_custom_tag not in MyWord.custom_tags]
+        tags_set = set(tag_list)
         parses = [parse for parse in self.parses if tags_set in parse.tag]
 
         if parses:

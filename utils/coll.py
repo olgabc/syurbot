@@ -8,7 +8,13 @@ class Config:
     @staticmethod
     def build():
         Config.values = configparser.ConfigParser()
-        Config.values.read("./config/local.cfg")
+        Config.values.read(
+            os.path.join(
+                os.path.abspath(os.path.dirname(os.path.dirname(__file__))),
+                "config",
+                "local.cfg"
+            )
+        )
 
     @staticmethod
     def get(path):

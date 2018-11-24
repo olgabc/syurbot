@@ -1,3 +1,4 @@
+
 #TODO len sen in gen_sen ?
 #TODO check capital letter TODO if try_case: for i in try
 #TODO add type sign or word
@@ -24,18 +25,18 @@ for file in os.listdir("books"): #
 
 #get_psos_base("dol_sta_vet") score=0.2, obj <class 'pymorphy2.analyzer.Parse'>
 ##asdf юродствовать ('futr',) INFN
-#d = "ван"; x = MyWord(d, "VERB"); print("d", x.get_required_tags())
+#d = "ващ; x = MyWord(d, "VERB"); print("d", x.get_required_tags())
 
-c = "испанка"; w = MyWord(
+c = "ваще"; w = MyWord(
     c,
-    tags='ADJF,inan,masc,sing,accs'.split(","),
-    word_register={},
+    tags='ADVB'.split(","),
+    word_register="get_register",
     is_normal_form=True
 ) #print("obj", w.parse_chosen.tag.number, w.parse_chosen.tag.case), pprint(w.parses)
 print("morph_parse:")
 pprint(morph.parse(c))
 pprint(w.__dict__)
-
+print(w.parse_chosen.inflect({"sing"}))
 #print("check_word", check_word(c))
 #print(check_sentence("Для Зои Карловны был чудом"))
 #print(generate_word(pos="VERB", required_tags=["perf", "intr"], inflect_tags=("futr","2per"), freq=None, source="freq"))
