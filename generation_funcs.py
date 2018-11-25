@@ -1,45 +1,46 @@
-from syur_classes import *
+from syurbot_db.tags_set import TagsSetModel
+from syurbot_db.frequency import FrequencyModel
+from syurbot_db.word import WordModel
+from syurbot_db.db_session import SESSION
+from syur_classes import MyWord
+from libs.funcs import split_by_words, split_by_sentences
+from random import choice as random_choice
 import re
 import os
+#from sqlalchemy import in_
 
 
-def generate_word(required_tags=None, inflect_tags=None, freq=None, source="freq"):
-    if pos in ["VERB", "PRTS", "PRTF", "GRND"]:
-        pos = "INFN"
+def generate_word(required_tags=None, inflect_tags=None, frequency=None, source="freq"):
+    tags_set_nums = []
+    tags_set_query = SESSION.query(TagsSetModel)
 
-    elif pos in ["ADJS", "COMP"]:
-        pos = "ADJF"
+    for row in tags_set_query:
+        if set(required_tags).intersection(row.tags_info.split(",")) == set(required_tags):
+            tags_set_nums.append(row.id)
 
-    words = load_some_csv("{}_{}".format(source, pos), "bases")
+    word_query = SESSION.query(WordModel).\
+        filter(WordModel.source==source).\
+        filter(WordModel.tags_set_num.in_(tags_set_nums))
 
-    if source == "freq":
-        words.drop(["R", "D", "Doc"], axis=1, inplace=True)
+    if frequency:
+        word_query = word_query.filter(WordModel.frequency >= frequency)
 
-    if freq:
-        words = words[words.Freq > freq]
+    if not word_query:
+        print("no fitting words")
+        return
 
-    if required_tags:
-        words["has_required_tags"] = words["tags"].apply(
-            lambda x: set(required_tags).intersection(x.split(",")) == set(required_tags)
-        )
-        words = words[words.has_required_tags == True]
-        if words.empty:
-            print("no fitting words")
-            return
+    word = random_choice(word_query)
 
-    word = words.sample(n=1)
-    word.index = [0]
-    word = word.at[0, "Lemma"]
+    myword_instance = MyWord(word.word, tags=word.tags_info.split(","), is_normal_form=True)
+    inflected_word = myword_instance.parse_chosen.inflect(set(inflect_tags)).word
 
-    w = MyWord(word, pos)
-
-    if not w.pymorphy_parse_object:
+    if not myword_instance.parse_chosen:
         return "trash"
 
     if inflect_tags:
-        return w.pymorphy_parse_object.inflect(set(inflect_tags)).word
+        return myword_instance.parse_chosen.inflect(set(inflect_tags)).word
     else:
-        return w.pymorphy_parse_object.word
+        return myword_instance.parse_chosen.word
 
 
 

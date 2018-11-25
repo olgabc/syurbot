@@ -11,7 +11,7 @@ class WordModel(Base):
     tags_set_num = Column(Integer)
     tags_info = Column(String(200))
     frequency = Column(Float)
-    source = Column(String(15))
+    word_source = Column(String(15))
 
     def __repr__(self):
         return "<WordModel(word={}, pos={}, tags_set_num={}, tags_info={}, frequency{}, source{})>".format(
