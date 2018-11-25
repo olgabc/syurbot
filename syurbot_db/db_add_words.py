@@ -226,29 +226,34 @@ def add_dict(
     dict_rows_list = []
     lemms = []
     unique_lemms = []
+    non_register_lemms = []
+    register_lemms = []
 
     for sentence in sentences:
-            sentence_words = split_by_words(sentence)
-            lemma = {"lemma": sentence_words[0], "register": None, "frequency": 1}
-            lemms.append(lemma)
+        sentence_words = split_by_words(sentence)
+        non_register_lemms.append(sentence_words[0])
+        lemms.append({"lemma": sentence_words[0], "register": None})
 
-            if lemma not in unique_lemms:
-                unique_lemms.append(lemma)
-                print(lemma)
+        for sentence_word in sentence_words[1:]:
+            register_lemms.append(sentence_word)
+            lemms.append({"lemma": sentence_word, "register": word_register})
 
-            for sentence_word in sentence_words[1:]:
-                lemma = {"lemma": sentence_word, "register": word_register, "frequency": 1}
-                lemms.append(lemma)
+    register_lemms = list(set(register_lemms))
+    non_register_lemms = list(set(non_register_lemms))
 
-                if lemma not in unique_lemms:
-                    unique_lemms.append(lemma)
-                    print(lemma)
+    for lemma in register_lemms:
+        unique_lemms.append({"lemma": lemma, "register": word_register, "frequency": 0})
+        print("register", lemma)
+
+    for lemma in non_register_lemms:
+        unique_lemms.append({"lemma": lemma, "register": None, "frequency": 0})
+        print("non_register", lemma)
 
     for unique_lemma in unique_lemms:
         for lemma in lemms:
             if lemma["lemma"] == unique_lemma["lemma"] and lemma["register"] == unique_lemma["register"]:
-                unique_lemma["frequency"] += lemma["frequency"]
-                print(unique_lemma)
+                unique_lemma["frequency"] += 1
+                print("unique_lemma", unique_lemma)
 
     for lemma in unique_lemms:
         dict_rows = add_lemma_to_dict(
