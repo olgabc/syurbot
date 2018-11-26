@@ -15,7 +15,7 @@ import os
 from generation_funcs import generate_word, check_sentence, replace_word, generate_sentence, choose_sentences
 import re
 
-c = "и"; w = MyWord(
+c = "me"; w = MyWord(
     c,
     tags="",
     word_register="get_register",

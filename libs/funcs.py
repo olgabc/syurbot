@@ -72,8 +72,7 @@ def split_by_sentences(text):
 
 
 def split_by_words(text):
-
-    text.replace("«", "").replace("»", "")
+    text = re.sub(r'[«»]', "", text)
     text = re.sub(r'[^-A-яA-z\s\d]|(?<![A-яA-z](?=.[A-яA-z]))-', "", text)
     text = re.sub(r'(\s+)', " ", text)
     text = re.sub(r'(^\s|\s$)', "", text)

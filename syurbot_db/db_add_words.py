@@ -7,6 +7,7 @@ from syurbot_db.word import WordModel
 from syurbot_db.db_session import SESSION
 from syur_classes import MyWord
 from libs.funcs import split_by_words, split_by_sentences
+from config.config import PSOS_TO_FIND
 
 MyWord.required_tags_params = "add_db_rows"
 
@@ -46,7 +47,7 @@ def add_lemma_to_dict(lemma, tags=None, word_register=None, is_normal_form=False
 
             frequency_1 = frequency_0 / len(word_1.parses)
 
-            if len(word_1.parses) == 1:
+            if len(word_1.parses) == 1 and word_1.parse_chosen:
                 word_instances_list.append((word_1, frequency_1))
     
             else:
@@ -80,8 +81,10 @@ def add_lemma_to_dict(lemma, tags=None, word_register=None, is_normal_form=False
         for dr in dict_row["tags_info"]:
             if dr == dr.upper():
                 dict_row["pos"] = dr
+                break
 
-        dict_rows.append(dict_row)
+        if dict_row["pos"] in PSOS_TO_FIND:
+            dict_rows.append(dict_row)
 
     for dict_row in dict_rows:
         dict_row["tags_info"] = ",".join(dict_row["tags_info"])
@@ -238,22 +241,18 @@ def add_dict(
             register_lemms.append(sentence_word)
             lemms.append({"lemma": sentence_word, "register": word_register})
 
-    register_lemms = list(set(register_lemms))
-    non_register_lemms = list(set(non_register_lemms))
+    unique_register_lemms = list(set(register_lemms))
+    unique_non_register_lemms = list(set(non_register_lemms))
 
-    for lemma in register_lemms:
-        unique_lemms.append({"lemma": lemma, "register": word_register, "frequency": 0})
-        print("register", lemma)
+    for lemma in unique_register_lemms:
+        lemma_dict = {"lemma": lemma, "register": word_register, "frequency": register_lemms.count(lemma)}
+        unique_lemms.append(lemma_dict)
+        print("register", lemma_dict)
 
-    for lemma in non_register_lemms:
-        unique_lemms.append({"lemma": lemma, "register": None, "frequency": 0})
-        print("non_register", lemma)
-
-    for unique_lemma in unique_lemms:
-        for lemma in lemms:
-            if lemma["lemma"] == unique_lemma["lemma"] and lemma["register"] == unique_lemma["register"]:
-                unique_lemma["frequency"] += 1
-                print("unique_lemma", unique_lemma)
+    for lemma in unique_non_register_lemms:
+        lemma_dict = {"lemma": lemma, "register": None, "frequency": non_register_lemms.count(lemma)}
+        unique_lemms.append(lemma_dict)
+        print("non_register", lemma_dict)
 
     for lemma in unique_lemms:
         dict_rows = add_lemma_to_dict(
