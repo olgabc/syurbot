@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # # -*- coding: utf-8 -*-
 
-from syurbot_db.tags_set import TagsSetModel
+from syurbot_db.tagset import TagSetModel
 from syurbot_db.frequency import FrequencyModel
 from syurbot_db.word import WordModel
 from syurbot_db.db_session import SESSION
@@ -106,7 +106,7 @@ def add_tags_sets(dict_rows_list):
 
     for tag_set in unique_tags_sets:
         if tag_set not in tags_sets_list:
-            SESSION.add(TagsSetModel(tags_set=tag_set))
+            SESSION.add(TagSetModel(tags_set=tag_set))
 
     SESSION.commit()
 
