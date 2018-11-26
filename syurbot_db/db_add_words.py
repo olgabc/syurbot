@@ -1,7 +1,8 @@
 #!/usr/bin/python
 # # -*- coding: utf-8 -*-
 
-from syurbot_db.tags_set import TagsSetModel
+from syurbot_db.tagset import TagSetModel
+from syurbot_db.tagset_has_tag import TagSetHasTagModel
 from syurbot_db.frequency import FrequencyModel
 from syurbot_db.word import WordModel
 from syurbot_db.db_session import SESSION
@@ -94,11 +95,16 @@ def add_lemma_to_dict(lemma, tags=None, word_register=None, is_normal_form=False
 
 def add_tags_sets(dict_rows_list):
 
-    tags_set_query = SESSION.query(TagsSetModel)
-    tags_sets_list = []
+    tagset_query = SESSION.query(TagSetModel)
+    tagsethastag_query = SESSION.query(TagSetHasTagModel)
+    tagset_list = []
+    tagsethastag_list = []
 
-    for tags_set_row in tags_set_query:
-        tags_sets_list.append(tags_set_row.tags_set)
+    for tagset_row in tagset_query:
+        tagset_list.append(tagset_row.tagset)
+
+    for tagsethastag_row in tagsethastag_query:
+        tagsethastag_list.append(tagsethastag_row.tagset)
 
     tags_sets = []
     

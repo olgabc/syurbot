@@ -1,4 +1,4 @@
-from syurbot_db.tags_set import TagsSetModel
+from syurbot_db.tagset import TagsSetModel
 from syurbot_db.frequency import FrequencyModel
 from syurbot_db.word import WordModel
 from syurbot_db.db_session import SESSION
