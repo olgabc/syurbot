@@ -9,7 +9,7 @@ class WordModel(Base):
     word = Column(String(45))
     pos = Column(String(4))
     tags_set_num = Column(Integer)
-    tags_info = Column(String(200))
+    tags_info = Column(String(200)) #temp
     frequency = Column(Float)
     word_source = Column(String(15))
 

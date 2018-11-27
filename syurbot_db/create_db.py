@@ -10,25 +10,23 @@ from syurbot_db.tagset_has_tag import TagSetHasTagModel
 from syurbot_db.word import WordModel
 from syurbot_db.sentence import SentenceModel
 from syurbot_db.db_session import SESSION
-from sqlalchemy.ext.declarative import declarative_base
+from syurbot_db.db_add_words import add_freq_dict
 
 
-"""
-FrequencyModel.__table__.create(engine)
-TagModel.__table__.create(engine)
-TagSetModel.__table__.create(engine)
-TagSetHasTagModel.__table__.create(engine)
-WordModel.__table__.create(engine)
-SentenceModel.__table__.create(engine)
+def create_tables():
+    FrequencyModel.__table__.create(engine)
+    TagModel.__table__.create(engine)
+    TagSetModel.__table__.create(engine)
+    TagSetHasTagModel.__table__.create(engine)
+    WordModel.__table__.create(engine)
+    SentenceModel.__table__.create(engine)
 
-opencorp_tags = open("opencorp_tags.txt").readlines()
-tags = opencorp_tags + MyWord.custom_tags
+    opencorp_tags = open("opencorp_tags.txt").readlines()
+    tags = opencorp_tags + MyWord.custom_tags
 
-for tag in tags:
-    SESSION.add(TagModel(tag=tag))
-SESSION.commit()
-
-"""
+    for tag in tags:
+        SESSION.add(TagModel(tag=tag))
+    SESSION.commit()
 
 
 def add_frequency_data():
@@ -45,6 +43,10 @@ def add_frequency_data():
             dict_row["frequency"] = float(dict_row["frequency"].replace(",", "."))
             dict_rows.append(dict_row)
 
+    frequency_query = SESSION.query(FrequencyModel)
+    old_frequency = frequency_query.filter(FrequencyModel.lemma != "")
+    old_frequency.delete(synchronize_session=False)
+
     for dict_row in dict_rows:
         SESSION.add(
             FrequencyModel(
@@ -58,5 +60,30 @@ def add_frequency_data():
 
     SESSION.commit()
 
+#create_tables()
+#add_frequency_data()
+add_freq_dict()
 
-add_frequency_data()
+"""
+tagsethastag_query = SESSION.query(TagSetHasTagModel)
+old_tagsethastag = tagsethastag_query.filter(TagSetHasTagModel.tag_id != 0)
+old_tagsethastag.delete(synchronize_session=False)
+
+tagset_query = SESSION.query(TagSetModel)
+old_tagset = tagset_query.filter(TagSetModel.id != 0)
+old_tagset.delete(synchronize_session=False)
+
+for i in (0,1,2,3,4,5,6,7,8,9):
+    SESSION.add(TagSetModel())
+    SESSION.commit()
+
+SESSION.add(TagSetHasTagModel(tagset_id = 11, tag_id=1))
+SESSION.add(TagSetHasTagModel(tagset_id = 11, tag_id=2))
+SESSION.add(TagSetHasTagModel(tagset_id = 12, tag_id=4))
+SESSION.add(TagSetHasTagModel(tagset_id = 12, tag_id=2))
+SESSION.add(TagSetHasTagModel(tagset_id = 11, tag_id=1))
+SESSION.add(TagSetHasTagModel(tagset_id = 13, tag_id=2))
+SESSION.add(TagSetHasTagModel(tagset_id = 25, tag_id=2))
+SESSION.commit()
+"""
+
