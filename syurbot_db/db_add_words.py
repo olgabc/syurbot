@@ -97,49 +97,57 @@ def add_tags_sets(dict_rows_list):
     tag_query = SESSION.query(TagModel)
     tagset_query = SESSION.query(TagSetModel)
     tagsethastag_query = SESSION.query(TagSetHasTagModel)
-    max_tagset_id = [max.id for max in tagset_query.having(func.max(TagSetModel.id))] #grrr
-    print(max_tagset_id)
+    max_tagset_id = int(SESSION.query(func.max(TagSetModel.id))[0][0])
+
     tag_dict = {row.tag.strip(): row.id for row in tag_query}
-    tagset_list = []
     tagset_tag_id_list = []
     db_tagset_tag_id_list = []
 
     for dict_row in dict_rows_list:
         tagset = dict_row["tags_list"]
-        tagset_list.append(tagset)
-        tagset_tag_id = ",".join([str(tag_dict[t_row]) for t_row in tagset])
+        tagset_tag_id = ",".join([str(tag_dict[tag_name]) for tag_name in tagset])
         tagset_tag_id_list.append(tagset_tag_id)
 
     tagset_tag_id_list = set(tagset_tag_id_list)
 
     for tagset in tagset_query:
-        tagsethastag_query = tagsethastag_query.filter(TagSetHasTagModel.tagset_id == tagset.id)
-        tagset_tag_id = [id.tag_id for id in tagsethastag_query]
+        tagsethastag_tagset_id_query = tagsethastag_query.filter(TagSetHasTagModel.tagset_id == tagset.id)
+        tagset_tag_id = [row.tag_id for row in tagsethastag_tagset_id_query]
         db_tagset_tag_id_list.append(tagset_tag_id)
-    print("db", db_tagset_tag_id_list)
+
     for tagset in tagset_tag_id_list:
-        tagset = tagset.split(",")
-        tagset = [int(t) for t in tagset]
+        tagset = [int(t) for t in tagset.split(",")]
 
         if tagset not in db_tagset_tag_id_list:
+            tagset_id = max_tagset_id + 1
             SESSION.add(TagSetModel())
-            id = max_tagset_id + 1
+            SESSION.commit()
 
-            for tag in tagset:
-                SESSION.add(TagSetHasTagModel(id=id,))
+            for tag_id in tagset:
+                SESSION.add(TagSetHasTagModel(tagset_id=tagset_id, tag_id=tag_id))
+                print("tagset", tagset_id, "tag_id", tag_id)
+
             max_tagset_id += 1
-    #SESSION.commit()
+
+    SESSION.commit()
 
 
 def enumerate_tags_sets(dict_rows_list):
-    tags_set_query = SESSION.query(TagsSetModel)
-    tags_sets_dict = {}
+    tag_query = SESSION.query(TagModel)
+    tagset_query = SESSION.query(TagSetModel)
+    tagsethastag_query = SESSION.query(TagSetHasTagModel)
+    tagset_id_list = [row.id for row in tagset_query]
+    tag_dict = {row.tag.strip(): row.id for row in tag_query}
+    tagset_tag_id_list = []
 
-    for tags_set_row in tags_set_query:
-        tags_sets_dict[tags_set_row.tags_set] = tags_set_row.id
+
+    for tagset in tagset_query:
+        tagsethastag_tagset_id_query = tagsethastag_query.filter(TagSetHasTagModel.tagset_id == tagset.id)
+        tagset_tag_id = [row.tag_id for row in tagsethastag_tagset_id_query]
+        tagset_tag_id_list.append(set(tagset_tag_id))
 
     for dict_row in dict_rows_list:
-        dict_row["tags_set_num"] = tags_sets_dict[dict_row["tags_list"]]
+        dict_row["tagset_id"] = set([str(tag_dict[tag_name]) for tag_name in tagset])
         print("enumerated:", dict_row)
 
 
@@ -196,7 +204,7 @@ def add_dict_rows(dict_rows_list):
 
 def add_freq_dict():
     freq_dict_query = SESSION.query(FrequencyModel)
-    freq_dict_query = freq_dict_query.filter(FrequencyModel.lemma.like('нерв%')) #temp
+    freq_dict_query = freq_dict_query.filter(FrequencyModel.lemma.like('нерв%'))  #temp
     words_dict_query = SESSION.query(WordModel)
     old_freq_dict = words_dict_query.filter(WordModel.word_source == "freq_dict")
     old_freq_dict.delete(synchronize_session=False)
@@ -218,10 +226,10 @@ def add_freq_dict():
 
         dict_rows_list += dict_rows
 
-    add_tags_sets(dict_rows_list)
+    #add_tags_sets(dict_rows_list)
     enumerate_tags_sets(dict_rows_list)
-    estimate_frequency(dict_rows_list)
-    add_dict_rows(dict_rows_list)
+    #estimate_frequency(dict_rows_list)
+    #add_dict_rows(dict_rows_list)
     SESSION.commit()
     SESSION.close()
 

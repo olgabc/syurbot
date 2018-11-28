@@ -65,25 +65,27 @@ def add_frequency_data():
 add_freq_dict()
 
 """
-tagsethastag_query = SESSION.query(TagSetHasTagModel)
-old_tagsethastag = tagsethastag_query.filter(TagSetHasTagModel.tag_id != 0)
-old_tagsethastag.delete(synchronize_session=False)
-
+TagSetModel.__table__.create(engine)
 tagset_query = SESSION.query(TagSetModel)
-old_tagset = tagset_query.filter(TagSetModel.id != 0)
-old_tagset.delete(synchronize_session=False)
+#old_tagset = tagset_query.filter(TagSetModel.id != 0)
+#old_tagset.delete(synchronize_session=False)
 
-for i in (0,1,2,3,4,5,6,7,8,9):
+for i in (0,1,2,3,4):
     SESSION.add(TagSetModel())
     SESSION.commit()
 
-SESSION.add(TagSetHasTagModel(tagset_id = 11, tag_id=1))
-SESSION.add(TagSetHasTagModel(tagset_id = 11, tag_id=2))
-SESSION.add(TagSetHasTagModel(tagset_id = 12, tag_id=4))
-SESSION.add(TagSetHasTagModel(tagset_id = 12, tag_id=2))
-SESSION.add(TagSetHasTagModel(tagset_id = 11, tag_id=1))
-SESSION.add(TagSetHasTagModel(tagset_id = 13, tag_id=2))
-SESSION.add(TagSetHasTagModel(tagset_id = 25, tag_id=2))
+TagSetHasTagModel.__table__.create(engine)
+#tagsethastag_query = SESSION.query(TagSetHasTagModel)
+#old_tagsethastag = tagsethastag_query.filter(TagSetHasTagModel.tag_id != 0)
+#old_tagsethastag.delete(synchronize_session=False)
+SESSION.add(TagSetHasTagModel(tagset_id = 1, tag_id=1))
+SESSION.add(TagSetHasTagModel(tagset_id = 1, tag_id=2))
+SESSION.add(TagSetHasTagModel(tagset_id = 2, tag_id=4))
+SESSION.add(TagSetHasTagModel(tagset_id = 2, tag_id=2))
+SESSION.add(TagSetHasTagModel(tagset_id = 3, tag_id=5))
+SESSION.add(TagSetHasTagModel(tagset_id = 4, tag_id=3))
+SESSION.add(TagSetHasTagModel(tagset_id = 5, tag_id=2))
+SESSION.add(TagSetHasTagModel(tagset_id = 5, tag_id=6))
 SESSION.commit()
 """
 
