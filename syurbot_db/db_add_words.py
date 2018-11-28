@@ -77,12 +77,11 @@ def get_lemma_dict_rows(lemma, tags=None, word_register=None, is_normal_form=Fal
     for word_instance in word_instances_list:
         dict_row = ({
             "word": word_instance[0].word,
-            "tags_set_num": 0,
-            "tags_list": word_instance[0].all_tags,
+            "tags": word_instance[0].all_tags,
             "frequency": word_instance[1],
             "word_source": word_source
         })
-        for dr in dict_row["tags_list"]:
+        for dr in dict_row["tags"]:
             if dr == dr.upper():
                 dict_row["pos"] = dr
                 break
@@ -93,35 +92,34 @@ def get_lemma_dict_rows(lemma, tags=None, word_register=None, is_normal_form=Fal
     return dict_rows
 
 
-def add_tags_sets(dict_rows_list):
+def add_tagsets_to_db(dict_rows_list):
     tag_query = SESSION.query(TagModel)
     tagset_query = SESSION.query(TagSetModel)
     tagsethastag_query = SESSION.query(TagSetHasTagModel)
     max_tagset_id = int(SESSION.query(func.max(TagSetModel.id))[0][0])
 
     tag_dict = {row.tag.strip(): row.id for row in tag_query}
-    tagset_tag_id_list = []
-    db_tagset_tag_id_list = []
+    tagset_tag_ids_list = []
+    db_tagset_tag_ids_list = []
 
     for dict_row in dict_rows_list:
-        tagset = dict_row["tags_list"]
-        tagset_tag_id = ",".join([str(tag_dict[tag_name]) for tag_name in tagset])
-        tagset_tag_id_list.append(tagset_tag_id)
+        tagset = dict_row["tags"]
+        tagset_tag_ids = ",".join([str(tag_dict[tag_name]) for tag_name in tagset])
+        tagset_tag_ids_list.append(tagset_tag_ids)
 
-    tagset_tag_id_list = set(tagset_tag_id_list)
+    tagset_tag_ids_list = list(set(tagset_tag_ids_list))
 
     for tagset in tagset_query:
-        tagsethastag_tagset_id_query = tagsethastag_query.filter(TagSetHasTagModel.tagset_id == tagset.id)
-        tagset_tag_id = [row.tag_id for row in tagsethastag_tagset_id_query]
-        db_tagset_tag_id_list.append(tagset_tag_id)
+        tagset_tags_query = tagsethastag_query.filter(TagSetHasTagModel.tagset_id == tagset.id)
+        tagset_tag_ids = set([row.tag_id for row in tagset_tags_query])
+        db_tagset_tag_ids_list.append(tagset_tag_ids)
 
-    for tagset in tagset_tag_id_list:
-        tagset = [int(t) for t in tagset.split(",")]
-
-        if tagset not in db_tagset_tag_id_list:
-            tagset_id = max_tagset_id + 1
+    for tagset in tagset_tag_ids_list:
+        tagset = set([int(tag_id) for tag_id in tagset.split(",")])
+        if tagset not in db_tagset_tag_ids_list:
             SESSION.add(TagSetModel())
             SESSION.commit()
+            tagset_id = max_tagset_id + 1
 
             for tag_id in tagset:
                 SESSION.add(TagSetHasTagModel(tagset_id=tagset_id, tag_id=tag_id))
@@ -132,33 +130,49 @@ def add_tags_sets(dict_rows_list):
     SESSION.commit()
 
 
-def enumerate_tags_sets(dict_rows_list):
+def enumerate_tagsets(dict_rows_list):
     tag_query = SESSION.query(TagModel)
     tagset_query = SESSION.query(TagSetModel)
     tagsethastag_query = SESSION.query(TagSetHasTagModel)
-    tagset_id_list = [row.id for row in tagset_query]
     tag_dict = {row.tag.strip(): row.id for row in tag_query}
-    tagset_tag_id_list = []
-
+    tagset_tags_list = []
 
     for tagset in tagset_query:
-        tagsethastag_tagset_id_query = tagsethastag_query.filter(TagSetHasTagModel.tagset_id == tagset.id)
-        tagset_tag_id = [row.tag_id for row in tagsethastag_tagset_id_query]
-        tagset_tag_id_list.append(set(tagset_tag_id))
+        tagset_tags_query = tagsethastag_query.filter(TagSetHasTagModel.tagset_id == tagset.id)
+        tagset_tag_id = [row.tag_id for row in tagset_tags_query]
+        tagset_tags_list.append((tagset.id, set(tagset_tag_id)))
 
     for dict_row in dict_rows_list:
-        dict_row["tagset_id"] = set([str(tag_dict[tag_name]) for tag_name in tagset])
-        print("enumerated:", dict_row)
+        dict_row["tag_ids"] = set([tag_dict[tag_name] for tag_name in dict_row["tags"]])
+        for tagset_id, tag_ids in tagset_tags_list:
+            if dict_row["tag_ids"] == tag_ids:
+                dict_row["tagset_id"] = tagset_id
+                print("enumerated:", dict_row)
+                break
 
 
-def estimate_frequency(dict_rows_list):
+def add_dict_rows(dict_rows_list):
+
+    for dict_row in dict_rows_list:
+        SESSION.add(WordModel(
+            word=dict_row["word"],
+            pos=dict_row["pos"],
+            tagset_id=dict_row["tagset_id"],
+            frequency=dict_row["frequency"],
+            word_source=dict_row["word_source"]
+        ))
+
+    SESSION.commit()
+
+
+def get_unique_rows(dict_rows_list):
     non_unique_dict_rows_list = []
 
     for dict_row in dict_rows_list:
         non_unique_dict_row = {
             "word": dict_row["word"],
-            "tags_set_num": dict_row["tags_set_num"],
-            "tags_list": dict_row["tags_list"],
+            "tagset_id": dict_row["tagset_id"],
+            "tags": dict_row["tags"],
             "word_source": dict_row["word_source"],
             "pos": dict_row["pos"],
             "frequency": 0
@@ -176,7 +190,7 @@ def estimate_frequency(dict_rows_list):
     for u_row in unique_dict_rows_list:
         for d_row in dict_rows_list:
             if (
-                    d_row["word"] == u_row["word"] and d_row["tags_set_num"] == u_row["tags_set_num"]
+                    d_row["word"] == u_row["word"] and d_row["tagset_id"] == u_row["tagset_id"]
             ):
                 u_row["frequency"] += d_row["frequency"]
                 print("frequency:", d_row)
@@ -185,21 +199,6 @@ def estimate_frequency(dict_rows_list):
         dict_rows_list.remove(dr)
 
     dict_rows_list += unique_dict_rows_list
-
-
-def add_dict_rows(dict_rows_list):
-
-    for dict_row in dict_rows_list:
-        SESSION.add(WordModel(
-            word=dict_row["word"],
-            pos=dict_row["pos"],
-            tags_set_num=dict_row["tags_set_num"],
-            tags_list=dict_row["tags_list"],
-            frequency=dict_row["frequency"],
-            word_source=dict_row["word_source"]
-        ))
-
-    SESSION.commit()
 
 
 def add_freq_dict():
@@ -226,10 +225,11 @@ def add_freq_dict():
 
         dict_rows_list += dict_rows
 
-    #add_tags_sets(dict_rows_list)
-    enumerate_tags_sets(dict_rows_list)
-    #estimate_frequency(dict_rows_list)
-    #add_dict_rows(dict_rows_list)
+    add_tagsets_to_db(dict_rows_list)
+    enumerate_tagsets(dict_rows_list)
+    add_dict_rows(dict_rows_list)
+    #get_unique_rows(dict_rows_list)
+
     SESSION.commit()
     SESSION.close()
 
@@ -294,9 +294,9 @@ def add_dict(
 
         dict_rows_list += dict_rows
 
-    add_tags_sets(dict_rows_list)
-    enumerate_tags_sets(dict_rows_list)
-    estimate_frequency(dict_rows_list)
+    add_tagsets_to_db(dict_rows_list)
+    enumerate_tagsets(dict_rows_list)
     add_dict_rows(dict_rows_list)
+    get_unique_rows(dict_rows_list)
     SESSION.commit()
     SESSION.close()

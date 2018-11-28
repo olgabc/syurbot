@@ -10,12 +10,7 @@
 from pprint import pprint
 from syur_classes import MyWord, morph
 
-import os
-#import pandas as pd
-from generation_funcs import generate_word, check_sentence, replace_word, generate_sentence, choose_sentences
-import re
-
-c = "me"; w = MyWord(
+c = "нервический"; w = MyWord(
     c,
     tags="",
     word_register="get_register",

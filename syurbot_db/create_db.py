@@ -62,6 +62,7 @@ def add_frequency_data():
 
 #create_tables()
 #add_frequency_data()
+WordModel.__table__.create(engine)
 add_freq_dict()
 
 """
