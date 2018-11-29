@@ -297,6 +297,6 @@ def add_dict(
     add_tagsets_to_db(dict_rows_list)
     enumerate_tagsets(dict_rows_list)
     add_dict_rows(dict_rows_list)
-    get_unique_rows(dict_rows_list)
+    #get_unique_rows(dict_rows_list)
     SESSION.commit()
     SESSION.close()

@@ -10,7 +10,7 @@ from syurbot_db.tagset_has_tag import TagSetHasTagModel
 from syurbot_db.word import WordModel
 from syurbot_db.sentence import SentenceModel
 from syurbot_db.db_session import SESSION
-from syurbot_db.db_add_words import add_freq_dict
+from syurbot_db.db_add_words import add_freq_dict, add_dict
 
 
 def create_tables():
@@ -62,8 +62,10 @@ def add_frequency_data():
 
 #create_tables()
 #add_frequency_data()
-WordModel.__table__.create(engine)
-add_freq_dict()
+#WordModel.__table__.create(engine)
+#add_freq_dict()
+add_dict(text="испанка, испанка, испанка. Паша паша Паша. Паша паша паша паша паша паша", word_source="test")
+
 
 """
 TagSetModel.__table__.create(engine)
