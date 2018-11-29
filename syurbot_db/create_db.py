@@ -11,6 +11,7 @@ from syurbot_db.word import WordModel
 from syurbot_db.sentence import SentenceModel
 from syurbot_db.db_session import SESSION
 from syurbot_db.db_add_words import add_freq_dict, add_dict
+from libs.funcs import load_some_text
 
 
 def create_tables():
@@ -60,35 +61,12 @@ def add_frequency_data():
 
     SESSION.commit()
 
+
 #create_tables()
 #add_frequency_data()
-#WordModel.__table__.create(engine)
 #add_freq_dict()
-add_dict(text="испанка, испанка, испанка. Паша паша Паша. Паша паша паша паша паша паша", word_source="test")
+text = load_some_text("ann_kar")
+add_dict(text=text, word_source="ann_kar")
 
 
-"""
-TagSetModel.__table__.create(engine)
-tagset_query = SESSION.query(TagSetModel)
-#old_tagset = tagset_query.filter(TagSetModel.id != 0)
-#old_tagset.delete(synchronize_session=False)
-
-for i in (0,1,2,3,4):
-    SESSION.add(TagSetModel())
-    SESSION.commit()
-
-TagSetHasTagModel.__table__.create(engine)
-#tagsethastag_query = SESSION.query(TagSetHasTagModel)
-#old_tagsethastag = tagsethastag_query.filter(TagSetHasTagModel.tag_id != 0)
-#old_tagsethastag.delete(synchronize_session=False)
-SESSION.add(TagSetHasTagModel(tagset_id = 1, tag_id=1))
-SESSION.add(TagSetHasTagModel(tagset_id = 1, tag_id=2))
-SESSION.add(TagSetHasTagModel(tagset_id = 2, tag_id=4))
-SESSION.add(TagSetHasTagModel(tagset_id = 2, tag_id=2))
-SESSION.add(TagSetHasTagModel(tagset_id = 3, tag_id=5))
-SESSION.add(TagSetHasTagModel(tagset_id = 4, tag_id=3))
-SESSION.add(TagSetHasTagModel(tagset_id = 5, tag_id=2))
-SESSION.add(TagSetHasTagModel(tagset_id = 5, tag_id=6))
-SESSION.commit()
-"""
 

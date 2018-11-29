@@ -11,12 +11,19 @@ from syur_classes import MyWord
 from libs.funcs import split_by_words, split_by_sentences
 from config.config import PSOS_TO_FIND
 from sqlalchemy import func
-import hashlib
 
 MyWord.required_tags_params = "add_db_rows"
 
 
-def get_lemma_dict_rows(lemma, tags=None, word_register=None, is_normal_form=False, word_source=None, frequency=None):
+def get_lemma_dict_rows(
+        lemma,
+        tags=None,
+        word_register=None,
+        is_normal_form=False,
+        word_source=None,
+        frequency=None,
+        score=None
+):
     print("lemma:", lemma)
     word_instances_list = []
 
@@ -24,7 +31,8 @@ def get_lemma_dict_rows(lemma, tags=None, word_register=None, is_normal_form=Fal
         lemma,
         tags=tags,
         is_normal_form=is_normal_form,
-        word_register=word_register
+        word_register=word_register,
+        score=score
     )
 
     if not word_0.parses:
@@ -96,7 +104,7 @@ def add_tagsets_to_db(dict_rows_list):
     tag_query = SESSION.query(TagModel)
     tagset_query = SESSION.query(TagSetModel)
     tagsethastag_query = SESSION.query(TagSetHasTagModel)
-    max_tagset_id = int(SESSION.query(func.max(TagSetModel.id))[0][0])
+    max_tagset_id = int(SESSION.query(func.max(TagSetModel.id))[0][0] or 0)
 
     tag_dict = {row.tag.strip(): row.id for row in tag_query}
     tagset_tag_ids_list = []
@@ -123,7 +131,6 @@ def add_tagsets_to_db(dict_rows_list):
 
             for tag_id in tagset:
                 SESSION.add(TagSetHasTagModel(tagset_id=tagset_id, tag_id=tag_id))
-                print("tagset", tagset_id, "tag_id", tag_id)
 
             max_tagset_id += 1
 
@@ -165,46 +172,37 @@ def add_dict_rows(dict_rows_list):
     SESSION.commit()
 
 
-def get_unique_rows(dict_rows_list):
-    non_unique_dict_rows_list = []
+def get_unique_rows(word_source):
+    words_dict_query = SESSION.query(WordModel)
+    words_dict_query = words_dict_query.filter(WordModel.word_source == word_source)
+    unique_rows_query = SESSION.query(
+        WordModel.word,
+        WordModel.pos,
+        WordModel.tagset_id,
+        func.sum(WordModel.frequency).label('frequency'),
+        WordModel.word_source
+    ).group_by(
+        WordModel.word, WordModel.tagset_id
+    ).all()
 
-    for dict_row in dict_rows_list:
-        non_unique_dict_row = {
-            "word": dict_row["word"],
-            "tagset_id": dict_row["tagset_id"],
-            "tags": dict_row["tags"],
-            "word_source": dict_row["word_source"],
-            "pos": dict_row["pos"],
-            "frequency": 0
-        }
-        non_unique_dict_rows_list.append(non_unique_dict_row)
-        print("non_unique:", non_unique_dict_row)
+    words_dict_query.delete(synchronize_session=False)
 
-    unique_dict_rows_list = []
+    for row in unique_rows_query:
+        SESSION.add(WordModel(
+            word=row.word,
+            pos=row.pos,
+            tagset_id=row.tagset_id,
+            frequency=row.frequency,
+            word_source=row.word_source
+        ))
 
-    for nu_row in non_unique_dict_rows_list:
-        if nu_row not in unique_dict_rows_list:
-            unique_dict_rows_list.append(nu_row)
-            print("unique:", nu_row)
-
-    for u_row in unique_dict_rows_list:
-        for d_row in dict_rows_list:
-            if (
-                    d_row["word"] == u_row["word"] and d_row["tagset_id"] == u_row["tagset_id"]
-            ):
-                u_row["frequency"] += d_row["frequency"]
-                print("frequency:", d_row)
-
-    for dr in dict_rows_list:
-        dict_rows_list.remove(dr)
-
-    dict_rows_list += unique_dict_rows_list
+        SESSION.commit()
 
 
 def add_freq_dict():
     freq_dict_query = SESSION.query(FrequencyModel)
-    freq_dict_query = freq_dict_query.filter(FrequencyModel.lemma.like('нерв%'))  #temp
     words_dict_query = SESSION.query(WordModel)
+    words_dict_query = words_dict_query.filter(WordModel.word.like('нерв%'))
     old_freq_dict = words_dict_query.filter(WordModel.word_source == "freq_dict")
     old_freq_dict.delete(synchronize_session=False)
     dict_rows_list = []
@@ -228,7 +226,7 @@ def add_freq_dict():
     add_tagsets_to_db(dict_rows_list)
     enumerate_tagsets(dict_rows_list)
     add_dict_rows(dict_rows_list)
-    #get_unique_rows(dict_rows_list)
+    get_unique_rows("freq_dict")
 
     SESSION.commit()
     SESSION.close()
@@ -287,7 +285,8 @@ def add_dict(
             word_register=lemma["register"],
             is_normal_form=is_normal_form,
             word_source=word_source,
-            frequency=lemma["frequency"]
+            frequency=lemma["frequency"],
+            score=0.01
         )
         if not dict_rows:
             continue
@@ -297,6 +296,6 @@ def add_dict(
     add_tagsets_to_db(dict_rows_list)
     enumerate_tagsets(dict_rows_list)
     add_dict_rows(dict_rows_list)
-    #get_unique_rows(dict_rows_list)
+    get_unique_rows(word_source)
     SESSION.commit()
     SESSION.close()
