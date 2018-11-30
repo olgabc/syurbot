@@ -1,10 +1,10 @@
 #!/usr/bin/python
 # # -*- coding: utf-8 -*-
 
-from libs.funcs import get_word_register
+from libs.text_funcs import get_word_register
 import pymorphy2
 from syurbot_db.db_session import SESSION
-from syurbot_db.frequency import FrequencyModel
+from syurbot_db.db_models.frequency import FrequencyModel
 from sqlalchemy import and_
 from config.config import PSOS_TO_CHECK, UNCHANGABLE_WORDS
 

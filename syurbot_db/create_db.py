@@ -3,15 +3,15 @@
 import csv
 from syur_classes import MyWord
 from config.config import engine
-from syurbot_db.frequency import FrequencyModel
-from syurbot_db.tag import TagModel
-from syurbot_db.tagset import TagSetModel
-from syurbot_db.tagset_has_tag import TagSetHasTagModel
-from syurbot_db.word import WordModel
-from syurbot_db.sentence import SentenceModel
+from syurbot_db.db_models.frequency import FrequencyModel
+from syurbot_db.db_models.tag import TagModel
+from syurbot_db.db_models.tagset import TagSetModel
+from syurbot_db.db_models.tagset_has_tag import TagSetHasTagModel
+from syurbot_db.db_models.word import WordModel
+from syurbot_db.db_models.sentence import SentenceModel
 from syurbot_db.db_session import SESSION
 from syurbot_db.db_add_words import add_freq_dict, add_dict
-from libs.funcs import load_some_text
+from libs.text_funcs import load_some_text
 
 
 def create_tables():
@@ -62,11 +62,8 @@ def add_frequency_data():
     SESSION.commit()
 
 
-#create_tables()
-#add_frequency_data()
-#add_freq_dict()
+create_tables()
+add_frequency_data()
+add_freq_dict()
 text = load_some_text("ann_kar")
 add_dict(text=text, word_source="ann_kar")
-
-
-

@@ -19,6 +19,7 @@ c = "сациви"; w = MyWord(
 print("morph_parse:")
 pprint(morph.parse(c))
 pprint(w.__dict__)
+print(w.get_tagset_ids(w.all_tags))
 print(w.parse_chosen.inflect({"sing"}))
 
 

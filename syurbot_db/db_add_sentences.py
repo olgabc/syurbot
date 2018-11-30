@@ -2,9 +2,9 @@
 # # -*- coding: utf-8 -*-
 
 import re
-from syurbot_db.sentence import SentenceModel
+from syurbot_db.db_models.sentence import SentenceModel
 from syur_classes import MyWord
-from libs.funcs import split_by_sentences, split_by_words
+from libs.text_funcs import split_by_sentences
 
 MyWord.required_tags_params = "add_db_rows"
 

@@ -1,8 +1,4 @@
-from config.config import engine
-from syurbot_db.tagset import TagSetModel
-from syurbot_db.word import WordModel
-from syurbot_db.db_add_words import add_freq_dict, add_dict
-from libs.funcs import load_some_text
+from syurbot_db.db_add_words import add_dict
 
 # from syurbot_db.db_add_sentences import add_sentences
 

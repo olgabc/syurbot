@@ -1,14 +1,14 @@
 #!/usr/bin/python
 # # -*- coding: utf-8 -*-
 
-from syurbot_db.tag import TagModel
-from syurbot_db.tagset import TagSetModel
-from syurbot_db.tagset_has_tag import TagSetHasTagModel
-from syurbot_db.frequency import FrequencyModel
-from syurbot_db.word import WordModel
+from syurbot_db.db_models.tagset import TagSetModel
+from syurbot_db.db_models.tagset_has_tag import TagSetHasTagModel
+from syurbot_db.db_models.frequency import FrequencyModel
+from syurbot_db.db_models.word import WordModel
 from syurbot_db.db_session import SESSION
+from syurbot_db.db_requests import get_tags_ids, get_tagset_tags_ids
 from syur_classes import MyWord
-from libs.funcs import split_by_words, split_by_sentences
+from libs.text_funcs import split_by_words, split_by_sentences
 from config.config import PSOS_TO_FIND
 from sqlalchemy import func
 
@@ -101,32 +101,28 @@ def get_lemma_dict_rows(
 
 
 def add_tagsets_to_db(dict_rows_list):
-    tag_query = SESSION.query(TagModel)
     tagset_query = SESSION.query(TagSetModel)
-    tagsethastag_query = SESSION.query(TagSetHasTagModel)
     max_tagset_id = int(SESSION.query(func.max(TagSetModel.id))[0][0] or 0)
 
-    tag_dict = {row.tag.strip(): row.id for row in tag_query}
-    tagset_tag_ids_list = []
-    db_tagset_tag_ids_list = []
+    tagset_tags_ids_list = []
+    db_tagset_tags_ids_list = []
 
     for dict_row in dict_rows_list:
-        tagset = dict_row["tags"]
-        tagset_tag_ids = ",".join([str(tag_dict[tag_name]) for tag_name in tagset])
-        tagset_tag_ids_list.append(tagset_tag_ids)
+        tagset_tags_ids = ",".join(get_tags_ids(dict_row["tags"], "str"))
+        tagset_tags_ids_list.append(tagset_tags_ids)
 
-    tagset_tag_ids_list = list(set(tagset_tag_ids_list))
+    tagset_tags_ids_list = list(set(tagset_tags_ids_list))
+    tagset_tags_ids_list = set([
+        [int(tag_id) for tag_id in tagset.split(",")] for tagset in tagset_tags_ids_list
+    ])
 
     for tagset in tagset_query:
-        tagset_tags_query = tagsethastag_query.filter(TagSetHasTagModel.tagset_id == tagset.id)
-        tagset_tag_ids = set([row.tag_id for row in tagset_tags_query])
-        db_tagset_tag_ids_list.append(tagset_tag_ids)
+        tagset_tags_ids = get_tagset_tags_ids(tagset.id)
+        db_tagset_tags_ids_list.append(tagset_tags_ids)
 
-    for tagset in tagset_tag_ids_list:
-        tagset = set([int(tag_id) for tag_id in tagset.split(",")])
-        if tagset not in db_tagset_tag_ids_list:
+    for tagset in tagset_tags_ids_list:
+        if tagset not in db_tagset_tags_ids_list:
             SESSION.add(TagSetModel())
-            SESSION.commit()
             tagset_id = max_tagset_id + 1
 
             for tag_id in tagset:
@@ -138,21 +134,18 @@ def add_tagsets_to_db(dict_rows_list):
 
 
 def enumerate_tagsets(dict_rows_list):
-    tag_query = SESSION.query(TagModel)
     tagset_query = SESSION.query(TagSetModel)
-    tagsethastag_query = SESSION.query(TagSetHasTagModel)
-    tag_dict = {row.tag.strip(): row.id for row in tag_query}
-    tagset_tags_list = []
+    tagset_tags_ids_list = []
 
     for tagset in tagset_query:
-        tagset_tags_query = tagsethastag_query.filter(TagSetHasTagModel.tagset_id == tagset.id)
-        tagset_tag_id = [row.tag_id for row in tagset_tags_query]
-        tagset_tags_list.append((tagset.id, set(tagset_tag_id)))
+        tagset_tags_ids = get_tagset_tags_ids(tagset)
+        tagset_tags_ids_list.append((tagset.id, tagset_tags_ids))
 
     for dict_row in dict_rows_list:
-        dict_row["tag_ids"] = set([tag_dict[tag_name] for tag_name in dict_row["tags"]])
-        for tagset_id, tag_ids in tagset_tags_list:
-            if dict_row["tag_ids"] == tag_ids:
+        dict_tags_ids = get_tags_ids(dict_row["tags"])
+
+        for tagset_id, tags_ids in tagset_tags_ids_list:
+            if dict_tags_ids == tags_ids:
                 dict_row["tagset_id"] = tagset_id
                 print("enumerated:", dict_row)
                 break

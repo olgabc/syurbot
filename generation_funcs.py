@@ -1,41 +1,41 @@
-from syurbot_db.tagset import TagsSetModel
-from syurbot_db.frequency import FrequencyModel
-from syurbot_db.word import WordModel
+from syurbot_db.db_models.tag import TagModel
+from syurbot_db.db_models.tagset import TagSetModel
+from syurbot_db.db_models.tagset_has_tag import TagSetHasTagModel
+from syurbot_db.db_models.word import WordModel
 from syurbot_db.db_session import SESSION
 from syur_classes import MyWord
-from libs.funcs import split_by_words, split_by_sentences
+from syurbot_db.db_requests import get_tags_ids, get_tagsets_having_tags_ids, get_tags_names
 from random import choice as random_choice
 import re
 import os
-#from sqlalchemy import in_
+from sqlalchemy import and_
+
+tag_query = SESSION.query(TagModel)
+tagset_query = SESSION.query(TagSetModel)
+tagsethastag_query = SESSION.query(TagSetHasTagModel)
 
 
-def generate_word(required_tags=None, inflect_tags=None, frequency=None, source="freq"):
-    tags_set_nums = []
-    tags_set_query = SESSION.query(TagsSetModel)
-
-    for row in tags_set_query:
-        if set(required_tags).intersection(row.tags_info.split(",")) == set(required_tags):
-            tags_set_nums.append(row.id)
-
-    word_query = SESSION.query(WordModel).\
-        filter(WordModel.source==source).\
-        filter(WordModel.tags_set_num.in_(tags_set_nums))
-
-    if frequency:
-        word_query = word_query.filter(WordModel.frequency >= frequency)
+def generate_word(required_tags, inflect_tags, frequency=0, word_source="freq_dict"):
+    word_query = SESSION.query(WordModel)
+    word_tags_ids = get_tags_ids(required_tags)
+    tagsets_ids = get_tagsets_having_tags_ids(word_tags_ids)
+    word_query = word_query.filter(
+        and_(
+            WordModel.tagset_id.in_(tagsets_ids),
+            WordModel.word_source == word_source,
+            WordModel.frequency >= frequency
+        )
+    )
 
     if not word_query:
         print("no fitting words")
         return
 
-    word = random_choice(word_query)
-
-    myword_instance = MyWord(word.word, tags=word.tags_info.split(","), is_normal_form=True)
-    inflected_word = myword_instance.parse_chosen.inflect(set(inflect_tags)).word
+    word = random_choice([word.word for word in word_query])
+    myword_instance = MyWord(word.word, tags=get_tags_names(word.tagset_id), is_normal_form=True)
 
     if not myword_instance.parse_chosen:
-        return "trash"
+        return "check word"
 
     if inflect_tags:
         return myword_instance.parse_chosen.inflect(set(inflect_tags)).word
@@ -46,18 +46,18 @@ def generate_word(required_tags=None, inflect_tags=None, frequency=None, source=
 
 
 
-
+"""
 
 
 def check_sentence(sentence, to_print=False, for_base=True):
-    """
+
     if (
             not "NOUN" in [MyWord(p).pos for p in sentence_words] and
             not {"он", "она", "оно", "они"}.intersection(sentence_words)
     ):
         print_if(to_print, "has no NOUN or NPRO")
         return
-    """
+
     sentence_words = sentence.split(" ")
     check_results = {sw: "trash" for sw in sentence_words}
 
@@ -73,7 +73,7 @@ def check_sentence(sentence, to_print=False, for_base=True):
 
         else:
             return check_results
-
+"""
 
 def choose_sentences(name_without_extension, folder="books_splited", delete_na=True):
     sentences_frame = load_some_csv(name_without_extension, folder)
@@ -90,27 +90,6 @@ def choose_sentences(name_without_extension, folder="books_splited", delete_na=T
     )
     print(sentences_frame.head(20))
     write_some_csv(sentences_frame, name_without_extension, "filtered_sentences")
-
-
-def replace_with_case(word_f, word_r):
-    if word_f.islower():
-        return word_f.replace(word_f, word_r.lower())
-
-    elif word_f.istitle():
-        return word_f.replace(word_f, word_r.capitalize())
-
-    elif word_f.isupper():
-        return word_f.replace(word_f, word_r.upper())
-
-
-def replace_word(word_f, word_r, sentence):
-    word_r = replace_with_case(word_f, word_r)
-    sentence = re.sub(
-        r'(^|\b){}(\b|$)'.format(word_f),
-        '{}'.format(replace_with_case(word_f, word_r)),
-        sentence
-    )
-    return sentence
 
 
 def generate_sentence(book=None, freq=None, to_print=True, words_qty=None, my_sentence=None):
@@ -175,7 +154,8 @@ def generate_sentence(book=None, freq=None, to_print=True, words_qty=None, my_se
     if has_sentence:
         return my_sentence
     else:
-        return """
-old: {}
-new: {}
-            """.format(book_sentence, my_sentence)
+        #return """
+#old: {}
+#new: {}
+            #""".format(book_sentence, my_sentence)
+"""

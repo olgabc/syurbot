@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, ForeignKey
-from syurbot_db.tag import TagModel
-from syurbot_db.tagset import TagSetModel
+from syurbot_db.db_models.tag import TagModel
+from syurbot_db.db_models.tagset import TagSetModel
 from sqlalchemy.ext.declarative import declarative_base
 Base = declarative_base()
 
