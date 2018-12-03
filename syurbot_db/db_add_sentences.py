@@ -1,32 +1,36 @@
 #!/usr/bin/python
 # # -*- coding: utf-8 -*-
 
-import re
 from syurbot_db.db_models.sentence import SentenceModel
+from syurbot_db.db_session import SESSION
 from syur_classes import MyWord
-from libs.text_funcs import split_by_sentences
-
-MyWord.required_tags_params = "add_db_rows"
+from libs.text_funcs import split_by_words, split_by_sentences
 
 
-def add_sentences(name_without_extension, folder="books"):
-    sentences = split_by_sentences(name_without_extension, folder)
+def add_sentences(word_source, text=None, sentences=None):
+    if not sentences:
+        sentences = split_by_sentences(text)
 
     for sentence in sentences:
-        sentence_words = re.sub(r'[^-A-яA-z\s\d]|(?<![A-яA-z](?=.[A-яA-z]))-', "", sentence)
-        sentence_words = re.sub(r'(\s+)', " ", sentence_words)
-        sentence_words = re.sub(r'(^\s|\s$)', "", sentence_words)
-        sentence_words = sentence_words.split(" ")
+        sentence_words = split_by_words(sentence)
         sentence_length = len(sentence_words)
+        sentence_words_check = [MyWord(sentence_words[0], word_register=None).get_check_result()]
 
-        #sentences_insert.execute({
-            #'sentence': sentence,
-            #'sentence_length': sentence_length,
-            #'source': name_without_extension
-        #})
+        for sentence_word in sentence_words[1:]:
+            sentence_words_check.append(MyWord(sentence_word, word_register="get_register").get_check_result())
 
+        fixed_words_qty = sentence_words_check.count("fixed")
+        trash_words_qty = sentence_words_check.count("trash")
+        unchangable_words_qty = sentence_words_check.count("unchangable")
 
-from config.config import engine
-SentenceModel.__table__.drop(engine)
-SentenceModel.__table__.create(engine)
+        SESSION.add(SentenceModel(
+            sentence=sentence,
+            sentence_length=sentence_length,
+            fixed_words_qty=fixed_words_qty,
+            trash_words_qty=trash_words_qty,
+            unchangable_words_qty=unchangable_words_qty,
+            word_source=word_source
+        ))
 
+    SESSION.commit()
+    SESSION.close()

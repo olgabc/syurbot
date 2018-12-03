@@ -10,18 +10,16 @@
 from pprint import pprint
 from syur_classes import MyWord, morph
 
-c = "сациви"; w = MyWord(
+c = "спросить"; w = MyWord(
     c,
     tags="",
     word_register="",
-    is_normal_form=True
+
 )
 print("morph_parse:")
 pprint(morph.parse(c))
 pprint(w.__dict__)
-print(w.get_tagset_ids(w.all_tags))
 print(w.parse_chosen.inflect({"sing"}))
-
 
 
 

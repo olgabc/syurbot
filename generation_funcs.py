@@ -31,7 +31,7 @@ def generate_word(required_tags, inflect_tags, frequency=0, word_source="freq_di
         print("no fitting words")
         return
 
-    word = random_choice([word.word for word in word_query])
+    word = random_choice([word for word in word_query])
     myword_instance = MyWord(word.word, tags=get_tags_names(word.tagset_id), is_normal_form=True)
 
     if not myword_instance.parse_chosen:
@@ -41,10 +41,6 @@ def generate_word(required_tags, inflect_tags, frequency=0, word_source="freq_di
         return myword_instance.parse_chosen.inflect(set(inflect_tags)).word
     else:
         return myword_instance.parse_chosen.word
-
-
-
-
 
 """
 
@@ -73,7 +69,7 @@ def check_sentence(sentence, to_print=False, for_base=True):
 
         else:
             return check_results
-"""
+
 
 def choose_sentences(name_without_extension, folder="books_splited", delete_na=True):
     sentences_frame = load_some_csv(name_without_extension, folder)
@@ -154,8 +150,8 @@ def generate_sentence(book=None, freq=None, to_print=True, words_qty=None, my_se
     if has_sentence:
         return my_sentence
     else:
-        #return """
+        #return
+"""
 #old: {}
 #new: {}
-            #""".format(book_sentence, my_sentence)
-"""
+            #.format(book_sentence, my_sentence)

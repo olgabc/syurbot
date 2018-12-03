@@ -9,6 +9,7 @@ from sqlalchemy import and_
 from config.config import PSOS_TO_CHECK, UNCHANGABLE_WORDS
 
 morph = pymorphy2.MorphAnalyzer()
+freq_dict_query = SESSION.query(FrequencyModel)
 
 
 class MyWord:
@@ -418,9 +419,7 @@ class MyWord:
             self.psos = [str(p.tag.POS) for p in self.parses]
 
     def _try_freq_dict(self):
-
         parses = self.parses
-        freq_dict_query = SESSION.query(FrequencyModel)
         in_freq_dict_parses = []
 
         for parse in parses:

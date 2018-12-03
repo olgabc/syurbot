@@ -1,5 +1,3 @@
-#!/usr/bin/python
-# # -*- coding: utf-8 -*-
 import csv
 from syur_classes import MyWord
 from config.config import engine
@@ -10,20 +8,20 @@ from syurbot_db.db_models.tagset_has_tag import TagSetHasTagModel
 from syurbot_db.db_models.word import WordModel
 from syurbot_db.db_models.sentence import SentenceModel
 from syurbot_db.db_session import SESSION
-from syurbot_db.db_add_words import add_freq_dict, add_dict
-from libs.text_funcs import load_some_text
 
 
 def create_tables():
-    FrequencyModel.__table__.create(engine)
-    TagModel.__table__.create(engine)
+    #FrequencyModel.__table__.create(engine)
+    #TagModel.__table__.create(engine)
     TagSetModel.__table__.create(engine)
     TagSetHasTagModel.__table__.create(engine)
     WordModel.__table__.create(engine)
-    SentenceModel.__table__.create(engine)
+    #SentenceModel.__table__.create(engine)
 
+
+def add_tag_data():
     opencorp_tags = open("opencorp_tags.txt").readlines()
-    tags = opencorp_tags + MyWord.custom_tags
+    tags = [opencorp_tag.rstrip() for opencorp_tag in opencorp_tags] + MyWord.custom_tags
 
     for tag in tags:
         SESSION.add(TagModel(tag=tag))
@@ -62,8 +60,18 @@ def add_frequency_data():
     SESSION.commit()
 
 
-create_tables()
-add_frequency_data()
-add_freq_dict()
+from libs.text_funcs import load_some_text
 text = load_some_text("ann_kar")
-add_dict(text=text, word_source="ann_kar")
+#create_tables()
+#from syurbot_db.db_add_words import add_freq_dict
+from syurbot_db.db_add_words import add_dict
+#add_freq_dict() # 18:16 - 18:23
+#add_dict(text=text, word_source="ann_kar") #18:29 18:45
+
+SESSION.add(WordModel(word='jopa'))
+a = SESSION.query(WordModel).filter(WordModel.word.like("j%"))
+b = [r.word for r in a]
+SESSION.add(WordModel(word='jjj'))
+for row in a: print(row.word)
+print("b", b)
+#a = SESSION.add(WordModel(word='jjj'))
