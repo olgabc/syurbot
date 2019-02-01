@@ -10,16 +10,16 @@
 from pprint import pprint
 from syur_classes import MyWord, morph
 
-c = "спросить"; w = MyWord(
+c = "испанка"; w = MyWord(
     c,
-    tags="",
-    word_register="",
+    tags=["femn", "anim", "multianim", "3_ii"],
+    word_register="get_register",
 
 )
 print("morph_parse:")
 pprint(morph.parse(c))
 pprint(w.__dict__)
-print(w.parse_chosen.inflect({"sing"}))
+print(w.parse_chosen.inflect({"loct"}))
 
 
 

@@ -20,7 +20,7 @@ class MyWord:
             self,
             word,
             tags=None,
-            score=None,
+            score=0,
             word_register=None,
             is_normal_form=False
     ):
@@ -33,14 +33,13 @@ class MyWord:
         """
         self.word = word
         self.parses = morph.parse(self.word)
-        self.psos = [str(p.tag.POS) for p in self.parses]
+        self.psos = list(set([str(p.tag.POS) for p in self.parses]))
         self.score = score
         self.word_register = word_register
         self.pos = None
         self.is_homonym = False
         self.parse_chosen = None
         self.tags_passed = tags
-        self.invalid_tags_passed = False
         self.extra_tags = []
         self.custom_tags = []
         self.all_tags = []
@@ -86,7 +85,7 @@ class MyWord:
             self._try_freq_dict()
             self._check_if_homonym()
 
-            if not self.pos:
+            if not self.is_homonym and not self.pos:
                 self.pos = self._get_pos()
 
         self._choose_parse()
@@ -102,14 +101,104 @@ class MyWord:
             self.required_tags = self.get_required_tags()
             self.inflect_tags = self.get_inflect_tags()
 
+    def _try_tags_passed(self):
+        non_custom_tags = []
+
+        for tag in self.tags_passed:
+            if "multianim" in self.tags_passed and "inan" in self.tags_passed:
+                self.extra_tags.append("inan")
+
+            if "multianim" in self.tags_passed and "anim" in self.tags_passed:
+                self.extra_tags.append("anim")
+
+            if tag in MyWord.custom_tags:
+                self.custom_tags.append(tag)
+
+            else:
+                non_custom_tags.append(tag)
+
+        tags_set = set(non_custom_tags)
+
+        parses = [parse for parse in self.parses if tags_set in parse.tag]
+
+        if parses:
+            self.parses = parses
+            self.psos = list(set([str(p.tag.POS) for p in self.parses]))
+        else:
+            raise ValueError("no such tags in parses")
+
+    def _try_normal_form(self):
+        parses = [
+            parse for parse in self.parses if parse.normal_form == self.word.lower() and not any([
+                not_nomn_case in str(parse.tag) for not_nomn_case in ["gent", "accs", "datv", "ablt", "loct"]
+            ])
+        ]
+
+        if parses:
+            self.parses = parses
+            self.psos = list(set([str(p.tag.POS) for p in self.parses]))
+        else:
+            raise ValueError("not a normal form")
+
+    def _try_score(self, score=None):
+        if not score:
+            score = self.score
+
+        parses = [parse for parse in self.parses if parse.score > score]
+
+        if parses:
+            self.parses = parses
+            self.psos = list(set([str(p.tag.POS) for p in self.parses]))
+        else:
+            raise ValueError("score is too high")
+
+    def _try_register(self):
+
+        if self.word_register == "get_register":
+            self.word_register = get_word_register(self.word)
+
+        title_tags = []
+
+        if self.word_register == "lower":
+            title_tags = ["Abbr", "Name", "Patr", "Surn", "Geox", "Orgn", "Trad"]
+            parses = [
+                parse for parse in self.parses if all([
+                    title_tag not in parse.tag for title_tag in title_tags
+                ])
+            ]
+
+        else:
+            if self.word_register == "title":
+                title_tags = ["Name", "Patr", "Surn", "Geox", "Orgn", "Trad"]
+
+            elif self.word_register == "upper":
+                title_tags = ["Abbr", ]
+
+            parses = [parse for parse in self.parses if any([title_tag in parse.tag for title_tag in title_tags])]
+
+        if parses:
+
+            if self.word_register == "lower":
+                self.parses = parses
+                self.psos = list(set([str(p.tag.POS) for p in self.parses]))
+
+            for tag in title_tags:
+                for p in parses:
+                    if tag in p.tag:
+                        self.parses = parses
+                        self.psos = list(set([str(p.tag.POS) for p in self.parses]))
+                        break
+        else:
+            raise ValueError("check word's register")
+
     def _get_pos(self):
 
-        if self.tags_passed and not self.invalid_tags_passed:
+        if self.tags_passed:
             for i in self.tags_passed:
                 if i == i.upper():
                     return i
 
-        elif len(set(self.psos)) == 1 and "UNKN" not in self.parses[0].tag:
+        if len(set(self.psos)) == 1 and "UNKN" not in self.parses[0].tag:
             return self.parses[0].tag.POS
 
         elif "PRTS" in self.psos:
@@ -126,6 +215,13 @@ class MyWord:
 
         elif set(self.psos) == {"PRTF", "ADJF"}:
             return "PRTF"
+
+    def _try_pos(self):
+        parses = [parse for parse in self.parses if parse.tag.POS == self.pos]
+
+        if parses:
+            self.parses = parses
+            self.psos = list(set([str(p.tag.POS) for p in self.parses]))
 
     def _check_if_homonym(self):
 
@@ -155,13 +251,8 @@ class MyWord:
                 return
 
     def _get_capitalized_tags(self):
-        capitalized_tags = str(self.parse_chosen.tag).replace(" ", ",").split(",")
-        capitalized_tags = [
-            tag for tag in capitalized_tags if (
-                    get_word_register(tag) != "upper" and
-                    get_word_register(tag) != "lower"
-            )
-        ]
+        splited_tags = str(self.parse_chosen.tag).replace(" ", ",").split(",")
+        capitalized_tags = [tag for tag in splited_tags if get_word_register(tag) not in ["upper", "lower"]]
         self._capitalized_tags = capitalized_tags
 
     def _get_custom_tags(self):
@@ -196,9 +287,9 @@ class MyWord:
 
         tags = str(self.parse_chosen.tag).replace(" ", ",").split(",")
         tags += self.custom_tags
+        tags += self.extra_tags
 
         self.all_tags = sorted(list(set(tags)))
-        self.all_tags = tags
         return
 
     def get_required_tags(self):
@@ -334,90 +425,6 @@ class MyWord:
 
         return [tag_a for tag_a in tags_adjf if tag_a is not None]
 
-    def _try_tags_passed(self):
-        for tag in self.tags_passed:
-            if "multianim" in self.tags_passed and "inan" in self.tags_passed:
-                self.extra_tags.append("inan")
-
-            if "multianim" in self.tags_passed and "anim" in self.tags_passed:
-                self.extra_tags.append("anim")
-
-            if tag in MyWord.custom_tags:
-                self.custom_tags.append(tag)
-                self.tags_passed.remove(tag)
-
-        tag_list = [not_custom_tag for not_custom_tag in self.tags_passed if not_custom_tag not in MyWord.custom_tags]
-        tags_set = set(tag_list)
-        parses = [parse for parse in self.parses if tags_set in parse.tag]
-
-        if parses:
-            self.parses = parses
-            self.psos = [str(p.tag.POS) for p in self.parses]
-        else:
-            self.invalid_tags_passed = True
-            self.tags_passed = []
-
-    def _try_normal_form(self):
-        parses = [
-            parse for parse in self.parses if parse.normal_form == self.word.lower() and not any([
-                not_nomn_case in str(parse.tag) for not_nomn_case in ["gent", "accs", "datv", "ablt", "loct"]
-            ])
-        ]
-
-        if parses:
-            self.parses = parses
-            self.psos = [str(p.tag.POS) for p in self.parses]
-
-    def _try_score(self, score=None):
-        if not score:
-            score = self.score
-
-        self.parses = [parse for parse in self.parses if parse.score > score]
-        self.psos = [str(p.tag.POS) for p in self.parses]
-
-    def _try_register(self):
-
-        if self.word_register == "get_register":
-            self.word_register = get_word_register(self.word)
-
-        title_tags = []
-
-        if self.word_register == "lower":
-            title_tags = ["Abbr", "Name", "Patr", "Surn", "Geox", "Orgn", "Trad"]
-            parses = [
-                parse for parse in self.parses if all([
-                    title_tag not in parse.tag for title_tag in title_tags
-                ])
-            ]
-
-        else:
-            if self.word_register == "title":
-                title_tags = ["Name", "Patr", "Surn", "Geox", "Orgn", "Trad"]
-
-            elif self.word_register == "upper":
-                title_tags = ["Abbr", ]
-
-            parses = [parse for parse in self.parses if any([title_tag in parse.tag for title_tag in title_tags])]
-
-        if parses:
-
-            if self.word_register == "lower":
-                self.parses = parses
-                self.psos = [str(p.tag.POS) for p in self.parses]
-
-            for tag in title_tags:
-                for p in parses:
-                    if tag in p.tag:
-                        self.parses = parses
-                        self.psos = [str(p.tag.POS) for p in self.parses]
-                        break
-
-    def _try_pos(self):
-        parses = [parse for parse in self.parses if parse.tag.POS == self.pos]
-        if parses:
-            self.parses = parses
-            self.psos = [str(p.tag.POS) for p in self.parses]
-
     def _try_freq_dict(self):
         parses = self.parses
         in_freq_dict_parses = []
@@ -442,7 +449,7 @@ class MyWord:
 
         if in_freq_dict_parses:
             self.parses = in_freq_dict_parses
-            self.psos = [str(p.tag.POS) for p in self.parses]
+            self.psos = list(set([str(p.tag.POS) for p in self.parses]))
 
     def get_check_result(
             self,
@@ -452,7 +459,7 @@ class MyWord:
         if any([str(parse.normal_form) in unchangable_words for parse in self.parses]):
             return "unchangable"
 
-        if not self.pos:
+        if not self.pos or self.is_homonym:
             return "trash"
 
         if self.pos not in psos_to_check:

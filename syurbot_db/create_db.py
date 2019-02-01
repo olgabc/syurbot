@@ -11,12 +11,12 @@ from syurbot_db.db_session import SESSION
 
 
 def create_tables():
-    #FrequencyModel.__table__.create(engine)
-    #TagModel.__table__.create(engine)
+    FrequencyModel.__table__.create(engine)
+    TagModel.__table__.create(engine)
     TagSetModel.__table__.create(engine)
     TagSetHasTagModel.__table__.create(engine)
     WordModel.__table__.create(engine)
-    #SentenceModel.__table__.create(engine)
+    SentenceModel.__table__.create(engine)
 
 
 def add_tag_data():
@@ -61,12 +61,12 @@ def add_frequency_data():
 
 
 from libs.text_funcs import load_some_text
-text = load_some_text("ann_kar")
+text = load_some_text("ann_kar_ex")
 #create_tables()
 #from syurbot_db.db_add_words import add_freq_dict
 from syurbot_db.db_add_words import add_dict
 #add_freq_dict() # 18:16 - 18:23
-#add_dict(text=text, word_source="ann_kar") #18:29 18:45
+add_dict(text=text, word_source="ann_kar_ex") #18:29 18:45
 
 SESSION.add(WordModel(word='jopa'))
 a = SESSION.query(WordModel).filter(WordModel.word.like("j%"))
@@ -74,4 +74,6 @@ b = [r.word for r in a]
 SESSION.add(WordModel(word='jjj'))
 for row in a: print(row.word)
 print("b", b)
+
+a = SESSION.query(WordModel).filter(WordModel.word.like("j%"))
 #a = SESSION.add(WordModel(word='jjj'))

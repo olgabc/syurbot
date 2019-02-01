@@ -194,7 +194,7 @@ def get_unique_rows(word_source):
             word_source=row.word_source
         ))
 
-        SESSION.commit()
+    SESSION.commit()
 
 
 def add_freq_dict():

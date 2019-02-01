@@ -2,7 +2,7 @@ from syurbot_db.db_models.tag import TagModel
 from syurbot_db.db_models.tagset import TagSetModel
 from syurbot_db.db_models.tagset_has_tag import TagSetHasTagModel
 from syurbot_db.db_session import SESSION
-from sqlalchemy import and_, func
+from sqlalchemy import and_
 
 
 tag_query = SESSION.query(TagModel)
@@ -10,7 +10,6 @@ tagset_query = SESSION.query(TagSetModel)
 tag_dict = {row.tag: row.id for row in tag_query}
 tag_names_dict = {row.id: row.tag for row in tag_query}
 all_tagsets_ids = set([tagset.id for tagset in tagset_query])
-max_tagset_id = int(SESSION.query(func.max(TagSetModel.id))[0][0] or 0)
 
 
 def get_tags_ids(tags, format_type=None):
