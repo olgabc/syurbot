@@ -7,16 +7,12 @@ class FrequencyModel(Base):
     __tablename__ = "frequency"
     id = Column(Integer, primary_key=True)
     lemma = Column(String(50))
-    dict_pos = Column(String(45))
-    pos = Column(String(4))
-    by_hands_tags = Column(String(50))
+    tags = Column(String(200))
     frequency = Column(Float)
 
     def __repr__(self):
-        return "<FrequencyModel(lemma={}, dict_pos={}, pos={}, by_hands_tags={}, frequency={})>".format(
+        return "<FrequencyModel(lemma={}, tags={}, frequency={})>".format(
             self.lemma,
-            self.dict_pos,
-            self.pos,
-            self.by_hands_tags,
+            self.tags,
             self.frequency
         )

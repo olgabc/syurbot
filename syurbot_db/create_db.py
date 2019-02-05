@@ -3,19 +3,25 @@ from syur_classes import MyWord
 from config.config import engine
 from syurbot_db.db_models.frequency import FrequencyModel
 from syurbot_db.db_models.tag import TagModel
-from syurbot_db.db_models.tagset import TagSetModel
-from syurbot_db.db_models.tagset_has_tag import TagSetHasTagModel
+from syurbot_db.db_models.tagset import TagsetModel
+from syurbot_db.db_models.tagset_has_tag import TagsetHasTagModel
+from syurbot_db.db_models.word_has_tagset import WordHasTagsetModel
+from syurbot_db.db_models.word_has_source import WordHasSourceModel
 from syurbot_db.db_models.word import WordModel
+from syurbot_db.db_models.source import SourceModel
 from syurbot_db.db_models.sentence import SentenceModel
 from syurbot_db.db_session import SESSION
 
 
 def create_tables():
     FrequencyModel.__table__.create(engine)
+    SourceModel.__table__.create(engine)
     TagModel.__table__.create(engine)
-    TagSetModel.__table__.create(engine)
-    TagSetHasTagModel.__table__.create(engine)
     WordModel.__table__.create(engine)
+    TagsetModel.__table__.create(engine)
+    TagsetHasTagModel.__table__.create(engine)
+    WordHasSourceModel.__table__.create(engine)
+    WordHasTagsetModel.__table__.create(engine)
     SentenceModel.__table__.create(engine)
 
 
@@ -60,6 +66,9 @@ def add_frequency_data():
     SESSION.commit()
 
 
+#create_tables()
+#add_tag_data()
+"""
 from libs.text_funcs import load_some_text
 text = load_some_text("ann_kar_ex")
 #create_tables()
@@ -77,3 +86,4 @@ print("b", b)
 
 a = SESSION.query(WordModel).filter(WordModel.word.like("j%"))
 #a = SESSION.add(WordModel(word='jjj'))
+"""

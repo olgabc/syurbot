@@ -1,11 +1,13 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
+from syurbot_db.db_models.source import SourceModel
 Base = declarative_base()
 
 
 class SentenceModel(Base):
     __tablename__ = "sentence"
     id = Column(Integer, primary_key=True)
+    source_id = Column(Integer, ForeignKey(SourceModel.id))
     sentence = Column(String(5000))
     sentence_length = Column(Integer)
     fixed_words_qty = Column(Integer)

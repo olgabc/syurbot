@@ -1,8 +1,8 @@
 #!/usr/bin/python
 # # -*- coding: utf-8 -*-
 
-from syurbot_db.db_models.tagset import TagSetModel
-from syurbot_db.db_models.tagset_has_tag import TagSetHasTagModel
+from syurbot_db.db_models.tagset import TagsetModel
+from syurbot_db.db_models.tagset_has_tag import TagsetHasTagModel
 from syurbot_db.db_models.frequency import FrequencyModel
 from syurbot_db.db_models.word import WordModel
 from syurbot_db.db_session import SESSION
@@ -102,8 +102,8 @@ def get_lemma_dict_rows(
 
 def add_tagsets_to_db(dict_rows_list):
     print("ADD_TAGSET")
-    tagset_query = SESSION.query(TagSetModel)
-    max_tagset_id = int(SESSION.query(func.max(TagSetModel.id))[0][0] or 0)
+    tagset_query = SESSION.query(TagsetModel)
+    max_tagset_id = int(SESSION.query(func.max(TagsetModel.id))[0][0] or 0)
 
     tagset_tags_ids_list = []
     db_tagset_tags_ids_list = []
@@ -128,10 +128,10 @@ def add_tagsets_to_db(dict_rows_list):
     for tagset in tagset_tags_ids_list:
         if tagset not in db_tagset_tags_ids_list:
             tagset_id = max_tagset_id + 1
-            SESSION.add(TagSetModel(id=tagset_id))
+            SESSION.add(TagsetModel(id=tagset_id))
 
             for tag_id in tagset:
-                SESSION.add(TagSetHasTagModel(tagset_id=tagset_id, tag_id=tag_id))
+                SESSION.add(TagsetHasTagModel(tagset_id=tagset_id, tag_id=tag_id))
 
             max_tagset_id += 1
 
@@ -140,7 +140,7 @@ def add_tagsets_to_db(dict_rows_list):
 
 def enumerate_tagsets(dict_rows_list):
     print("ENUMERATE_TAGS")
-    tagset_query = SESSION.query(TagSetModel)
+    tagset_query = SESSION.query(TagsetModel)
     tagset_tags_ids_list = []
 
     for tagset in tagset_query:
@@ -194,7 +194,7 @@ def get_unique_rows(word_source):
             word_source=row.word_source
         ))
 
-    SESSION.commit()
+        SESSION.commit()
 
 
 def add_freq_dict():
@@ -292,3 +292,6 @@ def add_dict(
     get_unique_rows(word_source)
     SESSION.commit()
     SESSION.close()
+
+
+for p in get_lemma_dict_rows("испанке", frequency=12): print("ppp", p)

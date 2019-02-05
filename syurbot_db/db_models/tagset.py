@@ -3,9 +3,9 @@ from sqlalchemy.ext.declarative import declarative_base
 Base = declarative_base()
 
 
-class TagSetModel(Base):
+class TagsetModel(Base):
     __tablename__ = "tagset"
     id = Column(Integer, primary_key=True, )
 
     def __repr__(self):
-        return "<TagSetModel()>"
+        return "<TagsetModel()>"

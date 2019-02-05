@@ -30,10 +30,12 @@ class MyWord:
         :param tags: pymorphy2 tags
         :param score: float in [0,1]
         :param word_register: {None, "get_register", "lower", "title", "upper"}
+        :param is_normal_form [False, True]
         """
         self.word = word
         self.parses = morph.parse(self.word)
         self.psos = list(set([str(p.tag.POS) for p in self.parses]))
+        self.psos_info = "all_fixed"
         self.score = score
         self.word_register = word_register
         self.pos = None
@@ -51,6 +53,10 @@ class MyWord:
             self.parses = None
             return
 
+        if self.check_all_psos_fixed():
+            self.psos_info = "all_fixed"
+            return
+
         if not self.tags_passed:
             self.tags_passed = []
 
@@ -63,12 +69,21 @@ class MyWord:
 
         if is_normal_form:
             self._try_normal_form()
-
-        if self.score:
-            self._try_score()
+        if self.check_all_psos_fixed():
+            self.psos_info = "all_fixed"
+            return
 
         if self.word_register:
             self._try_register()
+        if self.check_all_psos_fixed():
+            self.psos_info = "all_fixed"
+            return
+
+        if self.score:
+            self._try_score()
+        if self.check_all_psos_fixed():
+            self.psos_info = "all_fixed"
+            return
 
         self.pos = self._get_pos()
 
@@ -104,16 +119,16 @@ class MyWord:
     def _try_tags_passed(self):
         non_custom_tags = []
 
-        for tag in self.tags_passed:
-            if "multianim" in self.tags_passed and "inan" in self.tags_passed:
-                self.extra_tags.append("inan")
+        if "multianim" in self.tags_passed and "inan" in self.tags_passed:
+            self.extra_tags.append("inan")
 
-            if "multianim" in self.tags_passed and "anim" in self.tags_passed:
-                self.extra_tags.append("anim")
+        if "multianim" in self.tags_passed and "anim" in self.tags_passed:
+            self.extra_tags.append("anim")
+
+        for tag in self.tags_passed:
 
             if tag in MyWord.custom_tags:
                 self.custom_tags.append(tag)
-
             else:
                 non_custom_tags.append(tag)
 
@@ -154,6 +169,8 @@ class MyWord:
 
     def _try_register(self):
 
+        passed_register = self.word_register in ["lower", "upper", "title"]
+
         if self.word_register == "get_register":
             self.word_register = get_word_register(self.word)
 
@@ -189,7 +206,8 @@ class MyWord:
                         self.psos = list(set([str(p.tag.POS) for p in self.parses]))
                         break
         else:
-            raise ValueError("check word's register")
+            if passed_register:
+                raise ValueError("check word's passed register")
 
     def _get_pos(self):
 
@@ -322,17 +340,17 @@ class MyWord:
             if "refl" in self.custom_tags:
                 required_tags.remove("refl")
 
-            if "multianim" in self.custom_tags and "inan" in required_tags:
+            if "multianim" in self.required_tags and "inan" in required_tags:
                 required_tags.remove("inan")
 
-            if "multianim" in self.custom_tags and "anim" in required_tags:
+            if "multianim" in self.required_tags and "anim" in required_tags:
                 required_tags.remove("anim")
 
         required_tags.append(required_pos)
         required_tags = list(set(required_tags))
         return [str(tag) for tag in required_tags]
 
-    def get_excluded_tags(self):  #
+    def get_excluded_tags(self):
         if self.word_register == "lower":
             return ["Abbr", "Name", "Patr", "Surn", "Geox", "Orgn", "Trad"]
 
@@ -386,7 +404,7 @@ class MyWord:
             ):
                 return cases_numbers[0]
 
-        if "3_ii" in self.extra_tags:
+        if "3_ii" in self.custom_tags:
             if self.word[-1:] == "ь":
                 return ['nomn', 'sing']
             else:
@@ -409,7 +427,7 @@ class MyWord:
 
         verb_tags = [tag_vi for tag_vi in tags_verb_infn if tag_vi is not None]
 
-        if "refl" in self.extra_tags:
+        if "refl" in self.custom_tags:
             verb_tags.append("refl")
         return verb_tags
 
@@ -426,6 +444,7 @@ class MyWord:
         return [tag_a for tag_a in tags_adjf if tag_a is not None]
 
     def _try_freq_dict(self):
+        print("freq_dict")
         parses = self.parses
         in_freq_dict_parses = []
 
@@ -467,6 +486,15 @@ class MyWord:
 
         else:
             return "changable"
+
+    def check_all_psos_fixed(self):
+        if not any([str(parse.tag.POS) in PSOS_TO_CHECK for parse in self.parses]):
+            return True
+
+    def check_any_pos_fixed(self):
+        if any([str(parse.tag.POS) not in PSOS_TO_CHECK for parse in self.parses]):
+            return True
+
 
 # animacy - одушевленность
 # aspect - вид (совершенный не совершенный)
