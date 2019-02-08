@@ -8,27 +8,26 @@ from syurbot_db.db_models.word import WordModel
 from syurbot_db.db_session import SESSION
 from syur_classes import MyWord
 from libs.text_funcs import split_by_words, split_by_sentences
-from config.config import PSOS_TO_FIND
 from sqlalchemy import func
 from syurbot_db.db_requests import get_tags_ids, get_tagset_tags_ids
 
 MyWord.required_tags_params = "add_db_rows"
 
 
-def get_lemma_dict_rows(
-        lemma,
+def get_lexeme_dict_rows(
+        lexeme,
         tags=None,
         word_register=None,
         is_normal_form=False,
-        word_source=None,
+        source_id=None,
         frequency=None,
         score=None
 ):
-    print("get_lemma_dict_rows:", lemma)
+    print("get_lexeme_dict_rows:", lexeme)
     word_instances_list = []
 
     word_0 = MyWord(
-        lemma,
+        lexeme,
         tags=tags,
         is_normal_form=is_normal_form,
         word_register=word_register,
@@ -87,16 +86,8 @@ def get_lemma_dict_rows(
             "word": word_instance[0].word,
             "tags": word_instance[0].all_tags,
             "frequency": word_instance[1],
-            "word_source": word_source
+            "source_id": source_id
         })
-        for dr in dict_row["tags"]:
-            if dr == dr.upper():
-                dict_row["pos"] = dr
-                break
-
-        if dict_row["pos"] in PSOS_TO_FIND:
-            dict_rows.append(dict_row)
-
     return dict_rows
 
 
@@ -164,21 +155,21 @@ def add_dict_rows(dict_rows_list):
             pos=dict_row["pos"],
             tagset_id=dict_row["tagset_id"],
             frequency=dict_row["frequency"],
-            word_source=dict_row["word_source"]
+            source_id=dict_row["source_id"]
         ))
 
     SESSION.commit()
 
 
-def get_unique_rows(word_source):
+def get_unique_rows(source_id):
     words_dict_query = SESSION.query(WordModel)
-    words_dict_query = words_dict_query.filter(WordModel.word_source == word_source)
+    words_dict_query = words_dict_query.filter(WordModel.source_id == source_id)
     unique_rows_query = SESSION.query(
         WordModel.word,
         WordModel.pos,
         WordModel.tagset_id,
         func.sum(WordModel.frequency).label('frequency'),
-        WordModel.word_source
+        WordModel.source_id
     ).group_by(
         WordModel.word, WordModel.tagset_id
     ).all()
@@ -191,7 +182,7 @@ def get_unique_rows(word_source):
             pos=row.pos,
             tagset_id=row.tagset_id,
             frequency=row.frequency,
-            word_source=row.word_source
+            source_id=row.source_id
         ))
 
         SESSION.commit()
@@ -200,19 +191,19 @@ def get_unique_rows(word_source):
 def add_freq_dict():
     freq_dict_query = SESSION.query(FrequencyModel)
     words_dict_query = SESSION.query(WordModel)
-    freq_dict_query = freq_dict_query.filter(FrequencyModel.lemma.like('нерв%'))
-    old_freq_dict = words_dict_query.filter(WordModel.word_source == "freq_dict")
+    #freq_dict_query = freq_dict_query.filter(FrequencyModel.lexeme.like('нерв%'))
+    old_freq_dict = words_dict_query.filter(WordModel.source_id == 1)
     old_freq_dict.delete(synchronize_session=False)
     dict_rows_list = []
 
     for row in freq_dict_query:
         print(row)
-        dict_rows = get_lemma_dict_rows(
-            lemma=row.lemma,
-            tags=row.pos,
+        dict_rows = get_lexeme_dict_rows(
+            lexeme=row.lexeme,
+            tags=set(row.tags.split(",")),
             word_register="get_register",
             is_normal_form=True,
-            word_source="freq_dict",
+            source_id=1,
             frequency=row.frequency
         )
 
@@ -231,14 +222,14 @@ def add_freq_dict():
 
 
 def add_dict(
-        word_source,
+        source_id,
         text=None,
         sentences=None,
         is_normal_form=False,
         word_register="get_register"):
 
     words_dict_query = SESSION.query(WordModel)
-    old_dict = words_dict_query.filter(WordModel.word_source == word_source)
+    old_dict = words_dict_query.filter(WordModel.source_id == source_id)
     old_dict.delete(synchronize_session=False)
 
     if not sentences:
@@ -253,32 +244,32 @@ def add_dict(
     for sentence in sentences:
         sentence_words = split_by_words(sentence)
         non_register_lemms.append(sentence_words[0])
-        lemms.append({"lemma": sentence_words[0], "register": None})
+        lemms.append({"lexeme": sentence_words[0], "register": None})
 
         for sentence_word in sentence_words[1:]:
             register_lemms.append(sentence_word)
-            lemms.append({"lemma": sentence_word, "register": word_register})
+            lemms.append({"lexeme": sentence_word, "register": word_register})
 
     unique_register_lemms = list(set(register_lemms))
     unique_non_register_lemms = list(set(non_register_lemms))
 
-    for lemma in unique_register_lemms:
-        lemma_dict = {"lemma": lemma, "register": word_register, "frequency": register_lemms.count(lemma)}
-        unique_lemms.append(lemma_dict)
-        print("register", lemma_dict)
+    for lexeme in unique_register_lemms:
+        lexeme_dict = {"lexeme": lexeme, "register": word_register, "frequency": register_lemms.count(lexeme)}
+        unique_lemms.append(lexeme_dict)
+        print("register", lexeme_dict)
 
-    for lemma in unique_non_register_lemms:
-        lemma_dict = {"lemma": lemma, "register": None, "frequency": non_register_lemms.count(lemma)}
-        unique_lemms.append(lemma_dict)
-        print("non_register", lemma_dict)
+    for lexeme in unique_non_register_lemms:
+        lexeme_dict = {"lexeme": lexeme, "register": None, "frequency": non_register_lemms.count(lexeme)}
+        unique_lemms.append(lexeme_dict)
+        print("non_register", lexeme_dict)
 
-    for lemma in unique_lemms:
-        dict_rows = get_lemma_dict_rows(
-            lemma=lemma["lemma"],
-            word_register=lemma["register"],
+    for lexeme in unique_lemms:
+        dict_rows = get_lexeme_dict_rows(
+            lexeme=lexeme["lexeme"],
+            word_register=lexeme["register"],
             is_normal_form=is_normal_form,
-            word_source=word_source,
-            frequency=lemma["frequency"],
+            source_id=source_id,
+            frequency=lexeme["frequency"],
             score=0.01
         )
         if not dict_rows:
@@ -289,9 +280,39 @@ def add_dict(
     add_tagsets_to_db(dict_rows_list)
     enumerate_tagsets(dict_rows_list)
     add_dict_rows(dict_rows_list)
-    get_unique_rows(word_source)
+    get_unique_rows(source_id)
     SESSION.commit()
     SESSION.close()
 
 
-for p in get_lemma_dict_rows("испанке", frequency=12): print("ppp", p)
+def add_word(word, is_first, source_id, firsts_dict, others_dict):
+    if is_first:
+        try:
+            firsts_dict[word]["qty"] += 1
+        except IndexError:
+            firsts_dict[word] = "todo"
+
+    else:
+        try:
+            others_dict[word]["qty"] += 1
+        except IndexError:
+            firsts_dict[word] = "todo"
+
+
+def add_sentence(sentence, source_id=0):
+    sentence_words = split_by_words(sentence)
+    sentence_row = {
+        'sentence':sentence,
+        'length': len(sentence_words),
+        'fixed': 0,
+        'changable': 0,
+        'trash': 0,
+        'unchangable': 0,
+        'source_id': source_id
+    }
+    add_word(sentence_words[0], is_first=True, source_id=source_id)
+
+    for sw in sentence_words:
+        add_word(sw[0], is_first=True, source_id=source_id)
+
+for p in get_lexeme_dict_rows("испанке", frequency=12): print("ppp", p)

@@ -6,13 +6,13 @@ Base = declarative_base()
 class FrequencyModel(Base):
     __tablename__ = "frequency"
     id = Column(Integer, primary_key=True)
-    lemma = Column(String(50))
+    lexeme = Column(String(50))
     tags = Column(String(200))
     frequency = Column(Float)
 
     def __repr__(self):
-        return "<FrequencyModel(lemma={}, tags={}, frequency={})>".format(
-            self.lemma,
+        return "<FrequencyModel(lexeme={}, tags={}, frequency={})>".format(
+            self.lexeme,
             self.tags,
             self.frequency
         )

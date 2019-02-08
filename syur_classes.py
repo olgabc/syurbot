@@ -12,9 +12,13 @@ morph = pymorphy2.MorphAnalyzer()
 freq_dict_query = SESSION.query(FrequencyModel)
 
 
+class MyWordParamsError(Exception):
+    pass
+
+
 class MyWord:
     custom_tags = ["3_ii", "3_only", "refl", "multianim"]
-    required_tags_params = ""
+    purpose = ""
 
     def __init__(
             self,
@@ -35,7 +39,7 @@ class MyWord:
         self.word = word
         self.parses = morph.parse(self.word)
         self.psos = list(set([str(p.tag.POS) for p in self.parses]))
-        self.psos_info = "all_fixed"
+        self.info = ""
         self.score = score
         self.word_register = word_register
         self.pos = None
@@ -47,14 +51,18 @@ class MyWord:
         self.all_tags = []
         self.required_tags = []
         self.inflect_tags = []
-        self._capitalized_tags = []
+        self.capitalized_tags = []
+        self.db_tags = []
 
         if [parse for parse in self.parses if "UNKN" in parse.tag]:
             self.parses = None
             return
 
-        if self.check_all_psos_fixed():
-            self.psos_info = "all_fixed"
+        if self._check_all_psos_fixed():
+            self.info = "fixed"
+            return
+        if not self._check_changable():
+            self.info = "unchangable"
             return
 
         if not self.tags_passed:
@@ -69,20 +77,20 @@ class MyWord:
 
         if is_normal_form:
             self._try_normal_form()
-        if self.check_all_psos_fixed():
-            self.psos_info = "all_fixed"
+        if self._check_all_psos_fixed():
+            self.info = "fixed"
             return
 
         if self.word_register:
             self._try_register()
-        if self.check_all_psos_fixed():
-            self.psos_info = "all_fixed"
+        if self._check_all_psos_fixed():
+            self.info = "fixed"
             return
 
         if self.score:
             self._try_score()
-        if self.check_all_psos_fixed():
-            self.psos_info = "all_fixed"
+        if self._check_all_psos_fixed():
+            self.info = "fixed"
             return
 
         self.pos = self._get_pos()
@@ -96,8 +104,8 @@ class MyWord:
             self._try_score(0.1)
             self._check_if_homonym()
 
-        if self.is_homonym:
-            self._try_freq_dict()
+        if self.is_homonym and MyWord.purpose != "add_db_freq_dict":
+            #self._try_freq_dict() todo param for not freq dict
             self._check_if_homonym()
 
             if not self.is_homonym and not self.pos:
@@ -106,15 +114,19 @@ class MyWord:
         self._choose_parse()
 
         if self.parse_chosen:
+            self.info = "changable"
             self._get_capitalized_tags()
             self._get_custom_tags()
             self._get_all_tags()
-            
-            if MyWord.required_tags_params == "add_db_rows":
-                return 
-            
             self.required_tags = self.get_required_tags()
+            self.db_tags = list(set(self.required_tags + self.custom_tags + self.extra_tags))
+
+            if MyWord.purpose in ["add_db_source", "add_db_freq_dict"]:
+                return
+
             self.inflect_tags = self.get_inflect_tags()
+        else:
+            self.info = "trash"
 
     def _try_tags_passed(self):
         non_custom_tags = []
@@ -140,7 +152,7 @@ class MyWord:
             self.parses = parses
             self.psos = list(set([str(p.tag.POS) for p in self.parses]))
         else:
-            raise ValueError("no such tags in parses")
+            raise MyWordParamsError("no such tags in parses")
 
     def _try_normal_form(self):
         parses = [
@@ -153,7 +165,7 @@ class MyWord:
             self.parses = parses
             self.psos = list(set([str(p.tag.POS) for p in self.parses]))
         else:
-            raise ValueError("not a normal form")
+            raise MyWordParamsError("not a normal form")
 
     def _try_score(self, score=None):
         if not score:
@@ -165,7 +177,7 @@ class MyWord:
             self.parses = parses
             self.psos = list(set([str(p.tag.POS) for p in self.parses]))
         else:
-            raise ValueError("score is too high")
+            raise MyWordParamsError("score is too high")
 
     def _try_register(self):
 
@@ -207,7 +219,7 @@ class MyWord:
                         break
         else:
             if passed_register:
-                raise ValueError("check word's passed register")
+                raise MyWordParamsError("check word's passed register")
 
     def _get_pos(self):
 
@@ -271,7 +283,7 @@ class MyWord:
     def _get_capitalized_tags(self):
         splited_tags = str(self.parse_chosen.tag).replace(" ", ",").split(",")
         capitalized_tags = [tag for tag in splited_tags if get_word_register(tag) not in ["upper", "lower"]]
-        self._capitalized_tags = capitalized_tags
+        self.capitalized_tags = capitalized_tags
 
     def _get_custom_tags(self):
 
@@ -307,7 +319,7 @@ class MyWord:
         tags += self.custom_tags
         tags += self.extra_tags
 
-        self.all_tags = sorted(list(set(tags)))
+        self.all_tags = list(set(tags))
         return
 
     def get_required_tags(self):
@@ -340,10 +352,10 @@ class MyWord:
             if "refl" in self.custom_tags:
                 required_tags.remove("refl")
 
-            if "multianim" in self.required_tags and "inan" in required_tags:
+            if "multianim" in required_tags and "inan" in required_tags:
                 required_tags.remove("inan")
 
-            if "multianim" in self.required_tags and "anim" in required_tags:
+            if "multianim" in required_tags and "anim" in required_tags:
                 required_tags.remove("anim")
 
         required_tags.append(required_pos)
@@ -470,28 +482,18 @@ class MyWord:
             self.parses = in_freq_dict_parses
             self.psos = list(set([str(p.tag.POS) for p in self.parses]))
 
-    def get_check_result(
+    def _check_changable(
             self,
-            psos_to_check=PSOS_TO_CHECK,
             unchangable_words=UNCHANGABLE_WORDS
     ):
-        if any([str(parse.normal_form) in unchangable_words for parse in self.parses]):
-            return "unchangable"
+        if not any([str(parse.normal_form) in unchangable_words for parse in self.parses]):
+            return True
 
-        if not self.pos or self.is_homonym:
-            return "trash"
-
-        if self.pos not in psos_to_check:
-            return "fixed"
-
-        else:
-            return "changable"
-
-    def check_all_psos_fixed(self):
+    def _check_all_psos_fixed(self):
         if not any([str(parse.tag.POS) in PSOS_TO_CHECK for parse in self.parses]):
             return True
 
-    def check_any_pos_fixed(self):
+    def _check_any_pos_fixed(self):
         if any([str(parse.tag.POS) not in PSOS_TO_CHECK for parse in self.parses]):
             return True
 

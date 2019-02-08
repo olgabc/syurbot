@@ -9,18 +9,17 @@
 
 from pprint import pprint
 from syur_classes import MyWord, morph
-'PRTF,Subx,impf,intr,pres,actv masc,sing,nomn'
-c = "у"; w = MyWord(
+
+c = "авторитетнейший"; w = MyWord(
     c,
-    tags=[],
-    word_register="get_register",
+    is_normal_form=True
+    #tags=['GRND'],
+    #word_register="get_register",
 
 )
+
 print("morph_parse:")
 pprint(morph.parse(c))
 pprint(w.__dict__)
 
 #print(w.parse_chosen.inflect({"loct"}))
-
-
-
