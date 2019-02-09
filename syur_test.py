@@ -10,11 +10,12 @@
 from pprint import pprint
 from syur_classes import MyWord, morph
 
-c = "авторитетнейший"; w = MyWord(
+c = "атипичный"; w = MyWord(
     c,
-    is_normal_form=True
-    #tags=['GRND'],
+    #is_normal_form=True
+    tags=[],
     #word_register="get_register",
+    tagset_is_full=True
 
 )
 

@@ -11,7 +11,7 @@ class WordModel(Base):
     word = Column(String(45))
     tagset_id = Column(Integer, ForeignKey(TagsetModel.id))
     source_id = Column(Integer, ForeignKey(SourceModel.id))
-    hash = Column(String(32), unique=True)
+    hash = Column(String(32))
     frequency = Column(Float)
 
 

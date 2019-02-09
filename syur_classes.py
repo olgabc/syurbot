@@ -26,7 +26,8 @@ class MyWord:
             tags=None,
             score=0,
             word_register=None,
-            is_normal_form=False
+            is_normal_form=False,
+            tagset_is_full=False
     ):
         """
 
@@ -35,6 +36,7 @@ class MyWord:
         :param score: float in [0,1]
         :param word_register: {None, "get_register", "lower", "title", "upper"}
         :param is_normal_form [False, True]
+        :param tagset_is_full [False, True]
         """
         self.word = word
         self.parses = morph.parse(self.word)
@@ -42,6 +44,7 @@ class MyWord:
         self.info = ""
         self.score = score
         self.word_register = word_register
+        self.tagset_is_full = tagset_is_full
         self.pos = None
         self.is_homonym = False
         self.parse_chosen = None
@@ -119,7 +122,7 @@ class MyWord:
             self._get_custom_tags()
             self._get_all_tags()
             self.required_tags = self.get_required_tags()
-            self.db_tags = list(set(self.required_tags + self.custom_tags + self.extra_tags))
+            self.db_tags = list(set(self.required_tags + self.custom_tags + self.extra_tags + self.capitalized_tags))
 
             if MyWord.purpose in ["add_db_source", "add_db_freq_dict"]:
                 return
@@ -147,6 +150,9 @@ class MyWord:
         tags_set = set(non_custom_tags)
 
         parses = [parse for parse in self.parses if tags_set in parse.tag]
+
+        if self.tagset_is_full:
+            parses = [parse for parse in parses if set(str(parse.tag).replace(" ",",").split(",")) == tags_set]
 
         if parses:
             self.parses = parses

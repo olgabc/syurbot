@@ -7,8 +7,7 @@ from syurbot_db.db_models.frequency import FrequencyModel
 from syurbot_db.db_models.word import WordModel
 from syurbot_db.db_session import SESSION
 from syur_classes import MyWord, MyWordParamsError
-from sqlalchemy import func
-from sqlalchemy.exc import IntegrityError
+#from sqlalchemy.exc import IntegrityError
 from syurbot_db.db_requests import get_tags_ids, get_tagset_tags_ids
 from syurbot_db.hashing import row_to_hash, tagset_to_hash
 from config.config import PSOS_TO_CHECK, PSOS_TO_FIND
@@ -71,13 +70,15 @@ def get_lexeme_dict_rows(
             else:
                 for parse in word_1.parses:
                     parse_tag = str(parse.tag).replace(" ", ",").split(",") + word_1.custom_tags
+                    print("parse_tag", parse_tag)
                     word_2 = MyWord(
                         word=word_form[0],
                         tags=parse_tag,
                         is_normal_form=True,
-                        word_register=word_register
+                        word_register=word_register,
+                        tagset_is_full=True
                     )
-
+                    print("word_parse", word_2.parses)
                     if not word_2.parses:
                         continue
 
@@ -97,11 +98,11 @@ def get_lexeme_dict_rows(
         })
 
         tags = word_instance[0].db_tags
+        #print(tags)
         tagset_hash = tagset_to_hash(tags)
         tagset_hash_query_count = SESSION.query(TagsetModel).filter(TagsetModel.hash == tagset_hash).count()
 
         if not tagset_hash_query_count:
-            print("no_tagset")
             SESSION.add(TagsetModel(hash=tagset_hash))
             SESSION.commit()
             tagset_id = SESSION.query(TagsetModel.id).filter(TagsetModel.hash == tagset_hash)[0][0]
@@ -119,7 +120,6 @@ def get_lexeme_dict_rows(
             ])
 
         else:
-            print("is tagset")
             tagset_id = SESSION.query(TagsetModel.id).filter(TagsetModel.hash == tagset_hash)[0][0]
             dict_row["tagset_id"] = tagset_id
             word_hash = row_to_hash([
@@ -129,26 +129,14 @@ def get_lexeme_dict_rows(
             ])
             dict_row["hash"] = word_hash
         dict_rows.append(dict_row)
-
-    if source_id != 1:
-        return dict_rows
-
-    for dict_row in dict_rows:
-
-        try:
-            SESSION.add(WordModel(
-                word=dict_row["word"],
-                tagset_id=dict_row["tagset_id"],
-                source_id=dict_row["source_id"],
-                hash=dict_row["hash"],
-                frequency=dict_row["frequency"],
-            ))
-            SESSION.commit()
-        except IntegrityError:
-            print("IntegrityError")
-            SESSION.rollback()
-            continue
-
+        SESSION.add(WordModel(
+            word=dict_row["word"],
+            tagset_id=dict_row["tagset_id"],
+            source_id=dict_row["source_id"],
+            hash=dict_row["hash"],
+            frequency=dict_row["frequency"],
+        ))
+        SESSION.commit()
     return dict_rows
 
 
@@ -171,11 +159,12 @@ def add_freq_dict():
 
 
 """
-a = get_lexeme_dict_rows("красивый", word_register=None, frequency=1)
+
 b = get_lexeme_dict_rows("авторитетнейший", word_register="get_register", is_normal_form=True, frequency=1)
 for aa in a: print(aa)
 #for bb in b: print(bb)
 """
-
+#a = get_lexeme_dict_rows("агорозный", word_register=None, frequency=1)
 
 add_freq_dict()
+#print(a)

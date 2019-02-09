@@ -12,7 +12,7 @@ from syurbot_db.db_session import SESSION
 
 
 def create_tables():
-    FrequencyModel.__table__.create(engine)
+    #FrequencyModel.__table__.create(engine)
     SourceModel.__table__.create(engine)
     TagModel.__table__.create(engine)
     TagsetModel.__table__.create(engine)
@@ -38,7 +38,7 @@ def add_freq_dict_xlsx():
 
 create_tables()
 add_tag_data()
-add_freq_dict_xlsx()
+#add_freq_dict_xlsx()
 
 """
 
