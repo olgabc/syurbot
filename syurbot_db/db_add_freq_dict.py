@@ -62,7 +62,7 @@ def get_lexeme_dict_rows(
             if not word_1.parses:
                 continue
 
-            frequency_1 = frequency_0 / len(word_1.parses)
+            frequency_1 = frequency_0 / len(word_forms)
 
             if len(word_1.parses) == 1 and word_1.parse_chosen:
                 word_instances_list.append((word_1, frequency_1))
@@ -98,7 +98,6 @@ def get_lexeme_dict_rows(
         })
 
         tags = word_instance[0].db_tags
-        #print(tags)
         tagset_hash = tagset_to_hash(tags)
         tagset_hash_query_count = SESSION.query(TagsetModel).filter(TagsetModel.hash == tagset_hash).count()
 
@@ -162,13 +161,4 @@ def add_freq_dict():
         )
 
 
-"""
-
-b = get_lexeme_dict_rows("авторитетнейший", word_register="get_register", is_normal_form=True, frequency=1)
-for aa in a: print(aa)
-#for bb in b: print(bb)
-"""
-#a = get_lexeme_dict_rows("агорозный", word_register=None, frequency=1)
-
 add_freq_dict()
-#print(a)
