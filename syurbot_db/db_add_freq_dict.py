@@ -5,9 +5,9 @@ from syurbot_db.db_models.tagset import TagsetModel
 from syurbot_db.db_models.tagset_has_tag import TagsetHasTagModel
 from syurbot_db.db_models.frequency import FrequencyModel
 from syurbot_db.db_models.word import WordModel
+from syurbot_db.db_models.word_temp import WordTempModel
 from syurbot_db.db_session import SESSION
 from syur_classes import MyWord, MyWordParamsError
-#from sqlalchemy.exc import IntegrityError
 from syurbot_db.db_requests import get_tags_ids, get_tagset_tags_ids
 from syurbot_db.hashing import row_to_hash, tagset_to_hash
 from config.config import PSOS_TO_CHECK, PSOS_TO_FIND
@@ -129,7 +129,10 @@ def get_lexeme_dict_rows(
             ])
             dict_row["hash"] = word_hash
         dict_rows.append(dict_row)
-        SESSION.add(WordModel(
+
+        print(dict_row)
+
+        SESSION.add(WordTempModel(
             word=dict_row["word"],
             tagset_id=dict_row["tagset_id"],
             source_id=dict_row["source_id"],
@@ -137,6 +140,7 @@ def get_lexeme_dict_rows(
             frequency=dict_row["frequency"],
         ))
         SESSION.commit()
+
     return dict_rows
 
 
