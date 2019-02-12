@@ -8,11 +8,11 @@ Base = declarative_base()
 class WordTempModel(Base):
     __tablename__ = "word_temp"
     id = Column(Integer, primary_key=True)
-    word = Column(String(45))
-    tagset_id = Column(Integer, ForeignKey(TagsetModel.id))
-    source_id = Column(Integer, ForeignKey(SourceModel.id))
-    hash = Column(String(32))
-    frequency = Column(Float)
+    word = Column(String(45), nullable=False)
+    tagset_id = Column(Integer, ForeignKey(TagsetModel.id), nullable=False)
+    source_id = Column(Integer, ForeignKey(SourceModel.id), nullable=False)
+    hash = Column(String(32), nullable=False)
+    frequency = Column(Float, nullable=False)
 
 
     def __repr__(self):

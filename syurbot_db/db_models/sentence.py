@@ -7,12 +7,12 @@ Base = declarative_base()
 class SentenceModel(Base):
     __tablename__ = "sentence"
     id = Column(Integer, primary_key=True)
-    source_id = Column(Integer, ForeignKey(SourceModel.id))
-    sentence = Column(String(5000))
-    sentence_length = Column(Integer)
-    fixed_words_qty = Column(Integer)
-    trash_words_qty = Column(Integer)
-    unchangable_words_qty = Column(Integer)
+    source_id = Column(Integer, ForeignKey(SourceModel.id), nullable=False)
+    sentence = Column(String(5000), nullable=False)
+    sentence_length = Column(Integer, nullable=False)
+    fixed_words_qty = Column(Integer, nullable=False)
+    trash_words_qty = Column(Integer, nullable=False)
+    unchangable_words_qty = Column(Integer, nullable=False)
 
     def __repr__(self):
         return """

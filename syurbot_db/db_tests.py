@@ -2,7 +2,7 @@ from syurbot_db.db_session import SESSION
 from syurbot_db.db_models.tagset import TagsetModel
 from syurbot_db.db_models.tag import TagModel
 from syurbot_db.db_models.tagset_has_tag import TagsetHasTagModel
-from syurbot_db.db_models.frequency import FrequencyModel
+from syurbot_db.db_models.freq_dict import FrequencyModel
 from syurbot_db.db_models.word import WordModel
 from sqlalchemy import func
 from config.config import engine

@@ -1,7 +1,7 @@
 import pyexcel
 from syur_classes import MyWord
 from config.config import engine
-from syurbot_db.db_models.frequency import FrequencyModel
+from syurbot_db.db_models.freq_dict import FrequencyDictModel
 from syurbot_db.db_models.tag import TagModel
 from syurbot_db.db_models.tagset import TagsetModel
 from syurbot_db.db_models.tagset_has_tag import TagsetHasTagModel
@@ -13,14 +13,14 @@ from syurbot_db.db_session import SESSION
 
 
 def create_tables():
-    #FrequencyModel.__table__.create(engine)
-    #SourceModel.__table__.create(engine)
+    FrequencyDictModel.__table__.create(engine)
+    SourceModel.__table__.create(engine)
     TagModel.__table__.create(engine)
     TagsetModel.__table__.create(engine)
     TagsetHasTagModel.__table__.create(engine)
     WordTempModel.__table__.create(engine)
     WordModel.__table__.create(engine)
-    #SentenceModel.__table__.create(engine)
+    SentenceModel.__table__.create(engine)
 
 
 def add_tag_data():
@@ -40,7 +40,7 @@ def add_freq_dict_xlsx():
 
 create_tables()
 add_tag_data()
-#add_freq_dict_xlsx()
+add_freq_dict_xlsx()
 
 """
 

@@ -9,7 +9,7 @@ class TagModel(Base):
     """
     __tablename__ = "tag"
     id = Column(Integer, primary_key=True)
-    tag = Column(String(10))
+    tag = Column(String(10), nullable=False)
 
     def __repr__(self):
         return "<TagModel(tag={})>".format(self.tag)

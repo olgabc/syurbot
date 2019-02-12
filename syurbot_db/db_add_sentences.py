@@ -5,7 +5,7 @@ from syurbot_db.db_models.sentence import SentenceModel
 from syurbot_db.db_session import SESSION
 from syur_classes import MyWord
 from libs.text_funcs import split_by_words, split_by_sentences
-
+from syurbot_db.add_words import get_lexeme_dict_rows, write_words_rows
 
 def add_sentences(word_source, text=None, sentences=None):
     if not sentences:

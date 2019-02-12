@@ -4,7 +4,7 @@
 from libs.text_funcs import get_word_register
 import pymorphy2
 from syurbot_db.db_session import SESSION
-from syurbot_db.db_models.frequency import FrequencyModel
+from syurbot_db.db_models.freq_dict import FrequencyModel
 from sqlalchemy import and_
 from config.config import PSOS_TO_CHECK, UNCHANGABLE_WORDS
 

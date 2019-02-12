@@ -6,7 +6,7 @@ Base = declarative_base()
 class TagsetModel(Base):
     __tablename__ = "tagset"
     id = Column(Integer, primary_key=True)
-    hash = Column(String(32), unique=True)
+    hash = Column(String(32), unique=True, nullable=False)
 
     def __repr__(self):
         return "<TagsetModel(hash = {}>".format(self.hash)

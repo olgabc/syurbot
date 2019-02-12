@@ -10,13 +10,12 @@
 from pprint import pprint
 from syur_classes import MyWord, morph
 
-c = "атипичный"; w = MyWord(
+c = "кали"; w = MyWord(
     c,
-    #is_normal_form=True
+    is_normal_form=True,
     tags=[],
     #word_register="get_register",
     tagset_is_full=True
-
 )
 
 print("morph_parse:")
@@ -24,3 +23,6 @@ pprint(morph.parse(c))
 pprint(w.__dict__)
 
 #print(w.parse_chosen.inflect({"loct"}))
+rows = []
+rows.append(None)
+print(rows)
