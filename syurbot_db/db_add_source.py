@@ -1,62 +1,105 @@
 #!/usr/bin/python
 # # -*- coding: utf-8 -*-
 
-from syurbot_db.db_models.word import WordModel
-from syurbot_db.db_session import SESSION
+from libs.text_funcs import load_some_text
 from syur_classes import MyWord
+from syurbot_db.db_models.sentence_temp import SentenceTempModel
 from libs.text_funcs import split_by_words, split_by_sentences
-from syurbot_db.add_words import get_lexeme_dict_rows, write_words_rows
+#from syurbot_db.add_words import get_lexeme_dict_rows, write_words_rows
 from syurbot_db.db_models.source_dict import SourceDictModel
 from config.config import engine
 
-SourceDictModel.__table__.create(engine)
-MyWord.required_tags_params = "add_db_rows"
+
+MyWord.purpose = "add_db_source_dict"
 connection = engine.connect()
+
 
 def add_source_dict(
         source_id,
         text=None,
         sentences=None,
-        is_normal_form=False,
-        word_register="get_register"):
 
-    connection.execute(
+):
 
-    )
+    SourceDictModel.__table__.create(engine)
+    SentenceTempModel.__table__.create(engine)
 
     if not sentences:
         sentences = split_by_sentences(text)
 
-    connection.execute
+    for sentence in sentences:
+        sentences_lexemes = split_by_words(sentence)
+        lexemes_with_registers = [{"lexeme": lexeme, "is_first": 0} for lexeme in sentences_lexemes]
+        lexemes_with_registers[0]["is_first"] = 1
+        sentence_dict = {
+            "sentence": sentence,
+            "source_id": source_id,
+            "sentence_length": len(sentences_lexemes),
+            "fixed_words_qty": 0,
+            "trash_words_qty": 0
+        }
+        for lexeme in lexemes_with_registers:
+            select_lexeme = connection.execute(
+                """
+                SELECT id, frequency, type FROM source_dict
+                WHERE lexeme = '{}' AND is_first = {}
+                """.format(
+                    lexeme["lexeme"],
+                    lexeme["is_first"]
+                )
+            ).fetchone()
+            if select_lexeme:
+                lexeme_id = select_lexeme.id
+                frequency = select_lexeme.frequency + 1
+                lexeme_type = select_lexeme.type
 
-def add_word(word, is_first, source_id, firsts_dict, others_dict):
-    if is_first:
-        try:
-            firsts_dict[word]["qty"] += 1
-        except IndexError:
-            firsts_dict[word] = "todo"
+                connection.execute(
+                    """
+                    UPDATE source_dict SET frequency = {}
+                    WHERE id = {}
+                    """.format(
+                        frequency,
+                        lexeme_id
+                    )
+                )
 
-    else:
-        try:
-            others_dict[word]["qty"] += 1
-        except IndexError:
-            firsts_dict[word] = "todo"
+            else:
+                get_register = "get_register"
+
+                if lexeme["is_first"]:
+                    get_register = None
+
+                lexeme_type = MyWord(word=lexeme["lexeme"], word_register=get_register).info
+                connection.execute(
+                    """
+                    INSERT INTO source_dict (lexeme, is_first, type, frequency)
+                    VALUES ('{}', '{}', '{}', {}) 
+                    """.format(
+                        lexeme["lexeme"],
+                        lexeme["is_first"],
+                        lexeme_type,
+                        1
+                    )
+                )
+
+            if lexeme_type == "trash":
+                sentence_dict["trash_words_qty"] += 1
+            elif lexeme_type == "fixed":
+                sentence_dict["fixed_words_qty"] += 1
+
+        connection.execute(
+            """
+            INSERT INTO sentence_temp (sentence, source_id, sentence_length, fixed_words_qty, trash_words_qty)
+            VALUES ("{}", {}, {}, {}, {})
+            """.format(
+                sentence_dict["sentence"],
+                sentence_dict["source_id"],
+                sentence_dict["sentence_length"],
+                sentence_dict["fixed_words_qty"],
+                sentence_dict["trash_words_qty"],
+            )
+        )
 
 
-def add_sentence(sentence, source_id=0):
-    sentence_words = split_by_words(sentence)
-    sentence_row = {
-        'sentence':sentence,
-        'length': len(sentence_words),
-        'fixed': 0,
-        'changable': 0,
-        'trash': 0,
-        'unchangable': 0,
-        'source_id': source_id
-    }
-    add_word(sentence_words[0], is_first=True, source_id=source_id)
-
-    for sw in sentence_words:
-        add_word(sw[0], is_first=True, source_id=source_id)
-
-for p in get_lexeme_dict_rows("испанке", frequency=12): print("ppp", p)
+mytext = load_some_text("ann_kar.txt")
+add_source_dict(text=mytext, source_id=2)

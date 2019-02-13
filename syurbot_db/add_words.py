@@ -2,14 +2,14 @@ from syur_classes import MyWord, MyWordParamsError
 from syurbot_db.db_requests import get_tags_ids
 from syurbot_db.hashing import row_to_hash, tagset_to_hash
 from config.config import PSOS_TO_CHECK, PSOS_TO_FIND
-from sqlalchemy import Table, Column, MetaData, Integer, String
 from config.config import engine
 
 
 connection = engine.connect()
-
 psos_dict = {psos[0]: psos[1] for psos in zip(PSOS_TO_CHECK, PSOS_TO_FIND)}
-MyWord.purpose = "add_db_source"
+
+for tag in ["CONJ", "INTJ", "NUMR", "PREP", "PRED", "PRCL", "NPRO"]:
+    psos_dict[tag] = tag
 
 
 def get_lexeme_dict_rows(
@@ -19,8 +19,12 @@ def get_lexeme_dict_rows(
         is_normal_form=False,
         source_id=None,
         frequency=None,
-        score=None
+        score=None,
+        purpose=None
 ):
+    if purpose:
+        MyWord.purpose = purpose
+
     print("get_lexeme_dict_rows:", lexeme)
     word_instances_list = []
 
@@ -35,7 +39,7 @@ def get_lexeme_dict_rows(
     except MyWordParamsError:
         return []
 
-    if word_0.info in ["fixed", "unchangable"] or not word_0.parses:
+    if (MyWord.purpose != "add_db_freq_dict" and word_0.info == "fixed") or not word_0.parses:
         return []
 
     word_forms = set([(w.normal_form, w.tag.POS) for w in word_0.parses])
@@ -46,7 +50,7 @@ def get_lexeme_dict_rows(
 
     else:
         for word_form in word_forms:
-            if word_form[1] not in PSOS_TO_CHECK:
+            if MyWord.purpose != "add_db_freq_dict" and word_form[1] not in PSOS_TO_CHECK:
                 continue
             word_1 = MyWord(
                 word=word_form[0],
@@ -95,22 +99,21 @@ def get_lexeme_dict_rows(
         tagset_hash = tagset_to_hash(tags)
         tagset_exists = connection.execute(
             """
-            SELECT count(*) FROM tagset
+            SELECT COUNT(1) FROM tagset
             WHERE hash = '{}'
             """.format(
                 tagset_hash
             )
         ).fetchone()[0]
-        print("tagset_count", tagset_exists)
+
         if tagset_exists:
             tagset_id = connection.execute(
                 """
                 SELECT id FROM tagset
                 WHERE hash = '{}'
-                LIMIT 1
                 """.format(tagset_hash)
             ).fetchone()[0]
-            print("tagset_id_old", tagset_id)
+
             dict_row["tagset_id"] = tagset_id
             word_hash = row_to_hash([
                 dict_row["word"],
@@ -131,10 +134,9 @@ def get_lexeme_dict_rows(
                 """
                 SELECT id FROM tagset
                 WHERE hash = '{}'
-                LIMIT 1
                 """.format(tagset_hash)
             ).fetchone()[0]
-            print("tagset_id_new", tagset_id)
+
             tags_ids = get_tags_ids(tags, format_type="int")
 
             for tag_id in tags_ids:

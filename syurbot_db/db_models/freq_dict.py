@@ -4,7 +4,7 @@ Base = declarative_base()
 
 
 class FrequencyDictModel(Base):
-    __tablename__ = "frequency"
+    __tablename__ = "freq_dict"
     id = Column(Integer, primary_key=True)
     lexeme = Column(String(50), nullable=False)
     tags = Column(String(200), nullable=False)

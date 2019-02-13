@@ -2,8 +2,6 @@
 # -*- coding: utf-8 -*-
 
 
-from syurbot_db.db_models.word import WordModel
-from syurbot_db.db_session import SESSION
 from config.config import engine
 from syurbot_db.add_words import get_lexeme_dict_rows, write_words_rows
 
@@ -14,24 +12,23 @@ connection = engine.connect()
 def get_freq_dict_rows():
     freq_dict_query = connection.execute(
         """
-        SELECT * FROM frequency
+        SELECT * 
+        FROM freq_dict
         """
     )
-    # DELETE FROM table_name WHERE condition
-    words_dict_query = SESSION.query(WordModel)
-    old_freq_dict = words_dict_query.filter(WordModel.source_id == 1)
-    old_freq_dict.delete(synchronize_session=False)
     rows = []
 
-    for row in freq_dict_query:
+    for freq_dict_row in freq_dict_query:
         rows += get_lexeme_dict_rows(
-            lexeme=row.lexeme,
-            tags=set(row.tags.split(",")),
+            lexeme=freq_dict_row.lexeme,
+            tags=set(freq_dict_row.tags.split(",")),
             word_register="get_register",
             is_normal_form=True,
             source_id=1,
-            frequency=row.frequency
+            frequency=freq_dict_row.frequency,
+            purpose="add_db_freq_dict"
         )
+
     return rows
 
 

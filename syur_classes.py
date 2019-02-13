@@ -3,13 +3,9 @@
 
 from libs.text_funcs import get_word_register
 import pymorphy2
-from syurbot_db.db_session import SESSION
-from syurbot_db.db_models.freq_dict import FrequencyModel
-from sqlalchemy import and_
-from config.config import PSOS_TO_CHECK, UNCHANGABLE_WORDS
+from config.config import PSOS_TO_CHECK, UNCHANGABLE_WORDS, engine
 
 morph = pymorphy2.MorphAnalyzer()
-freq_dict_query = SESSION.query(FrequencyModel)
 
 
 class MyWordParamsError(Exception):
@@ -63,10 +59,13 @@ class MyWord:
 
         if self._check_all_psos_fixed():
             self.info = "fixed"
-            return
+            if MyWord.purpose != "add_db_freq_dict":
+                return
+
         if not self._check_changable():
-            self.info = "unchangable"
-            return
+            self.info = "fixed"
+            if MyWord.purpose != "add_db_freq_dict":
+                return
 
         if not self.tags_passed:
             self.tags_passed = []
@@ -82,19 +81,22 @@ class MyWord:
             self._try_normal_form()
         if self._check_all_psos_fixed():
             self.info = "fixed"
-            return
+            if MyWord.purpose != "add_db_freq_dict":
+                return
 
         if self.word_register:
             self._try_register()
         if self._check_all_psos_fixed():
             self.info = "fixed"
-            return
+            if MyWord.purpose != "add_db_freq_dict":
+                return
 
         if self.score:
             self._try_score()
         if self._check_all_psos_fixed():
             self.info = "fixed"
-            return
+            if MyWord.purpose != "add_db_freq_dict":
+                return
 
         self.pos = self._get_pos()
 
@@ -103,12 +105,12 @@ class MyWord:
 
         self._check_if_homonym()
 
-        if self.is_homonym and self.pos == "NOUN":
+        if MyWord.purpose not in ["add_db_source_dict", "add_db_freq_dict"] and self.is_homonym and self.pos == "NOUN":
             self._try_score(0.1)
             self._check_if_homonym()
 
         if self.is_homonym and MyWord.purpose != "add_db_freq_dict":
-            #self._try_freq_dict() todo param for not freq dict
+            self._try_freq_dict()
             self._check_if_homonym()
 
             if not self.is_homonym and not self.pos:
@@ -124,7 +126,7 @@ class MyWord:
             self.required_tags = self.get_required_tags()
             self.db_tags = list(set(self.required_tags + self.custom_tags + self.extra_tags + self.capitalized_tags))
 
-            if MyWord.purpose in ["add_db_source", "add_db_freq_dict"]:
+            if MyWord.purpose in ["add_db_source_dict", "add_db_freq_dict"]:
                 return
 
             self.inflect_tags = self.get_inflect_tags()
@@ -152,7 +154,7 @@ class MyWord:
         parses = [parse for parse in self.parses if tags_set in parse.tag]
 
         if self.tagset_is_full:
-            parses = [parse for parse in parses if set(str(parse.tag).replace(" ",",").split(",")) == tags_set]
+            parses = [parse for parse in parses if set(str(parse.tag).replace(" ", ",").split(",")) == tags_set]
 
         if parses:
             self.parses = parses
@@ -240,7 +242,7 @@ class MyWord:
         elif "PRTS" in self.psos:
             return "PRTS"
 
-        elif set(self.psos) == {"ADVB", "ADJS"} and len(set([w.normal_form for w in self.parses])) == 1:
+        elif set(self.psos) == {"ADVB", "ADJS"}:
             return "ADVB"
 
         elif set(self.psos) == {"ADJF", "NOUN"} and len(set([w.normal_form for w in self.parses])) == 1:
@@ -462,6 +464,7 @@ class MyWord:
         return [tag_a for tag_a in tags_adjf if tag_a is not None]
 
     def _try_freq_dict(self):
+        connection = engine.connect()
         print("freq_dict")
         parses = self.parses
         in_freq_dict_parses = []
@@ -476,12 +479,23 @@ class MyWord:
             elif parse_pos in ["ADJS", "COMP", "PRTS", "PRTF"]:
                 parse_pos = "ADJF"
 
-            freq_dict_lemms = freq_dict_query.filter(
-                and_(FrequencyModel.lemma == parse_normal_form, FrequencyModel.pos == parse_pos)
+            parse_exists = connection.execute(
+                """
+                SELECT 1
+                FROM word                
+                INNER JOIN tagset_has_tag 
+                ON word.tagset_id = tagset_has_tag.tagset_id                
+                INNER JOIN tag 
+                ON tag.id = tagset_has_tag.tag_id                
+                WHERE word = '{}' AND tag = '{}' and source_id = 1
+                LIMIT 1
+                """.format(
+                    parse_normal_form,
+                    parse_pos
+                )
             )
-            fd_list = [fd_parse for fd_parse in freq_dict_lemms]
 
-            if fd_list:
+            if parse_exists:
                 in_freq_dict_parses.append(parse)
 
         if in_freq_dict_parses:

@@ -32,10 +32,17 @@ def print_if(to_print, pattern='', word=''):
         print("{}, {}".format(pattern, word))
 
 
-def load_some_text(name_without_extension, folder="books"):
+def load_some_text(
+        name,
+        folder=os.path.join(
+            os.path.abspath(os.path.dirname(os.path.dirname(__file__))),
+            "syurbot_db",
+            "books"
+        )
+):
     file_path = os.path.join(
         folder,
-        "{}.txt".format(name_without_extension)
+        name
     )
     book = open(file_path)
     return book.read()

@@ -10,12 +10,12 @@
 from pprint import pprint
 from syur_classes import MyWord, morph
 
-c = "кали"; w = MyWord(
+c = "штабс-капитанша"; w = MyWord(
     c,
-    is_normal_form=True,
-    tags=[],
+    is_normal_form=False,
+    #tags=["NOUN"],
     #word_register="get_register",
-    tagset_is_full=True
+    #tagset_is_full=True
 )
 
 print("morph_parse:")

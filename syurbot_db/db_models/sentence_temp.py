@@ -4,8 +4,8 @@ from syurbot_db.db_models.source import SourceModel
 Base = declarative_base()
 
 
-class SentenceModel(Base):
-    __tablename__ = "sentence"
+class SentenceTempModel(Base):
+    __tablename__ = "sentence_temp"
     id = Column(Integer, primary_key=True)
     source_id = Column(Integer, ForeignKey(SourceModel.id), nullable=False)
     sentence = Column(String(5000), nullable=False)
