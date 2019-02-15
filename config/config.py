@@ -1,12 +1,28 @@
 from utils.coll import Config
 from sqlalchemy import create_engine
 
-DB_PASSWORD = Config.get('DB.password')
 DB_HOST = Config.get('DB.host')
-engine = create_engine(
-    'mysql+pymysql://root:{}@{}/syurbotdb'.format(DB_PASSWORD, DB_HOST),
+DB_PASSWORD = Config.get('DB.password')
+
+local_engine = create_engine(
+    'mysql+pymysql://root:{}@{}/syurbot_db'.format(DB_PASSWORD, DB_HOST),
     echo=True
 )
+
+DB_REMOTE_HOST = Config.get('DB_REMOTE.host')
+DB_REMOTE_USER = Config.get('DB_REMOTE.user')
+DB_REMOTE_PASSWORD = Config.get('DB_REMOTE.password')
+
+remote_engine = create_engine(
+    'mysql+pymysql://{}:{}@{}/syurbot_db'.format(
+        DB_REMOTE_USER,
+        DB_REMOTE_PASSWORD,
+        DB_REMOTE_HOST,
+    echo=True
+    )
+)
+
+engine = local_engine
 
 PSOS_TO_CHECK = ["NOUN", "INFN", "VERB", "PRTS", "PRTF", "GRND", "ADJF", "ADJS", "COMP", "ADVB"]
 PSOS_TO_FIND = ["NOUN", "INFN", "INFN", "INFN", "INFN", "INFN", "ADJF", "ADJF", "ADJF", "ADVB"]

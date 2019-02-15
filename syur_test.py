@@ -10,7 +10,7 @@
 from pprint import pprint
 from syur_classes import MyWord, morph
 
-c = "штабс-капитанша"; w = MyWord(
+c = "Гойя"; w = MyWord(
     c,
     is_normal_form=False,
     #tags=["NOUN"],

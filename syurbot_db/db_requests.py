@@ -2,7 +2,6 @@ from syurbot_db.db_models.tag import TagModel
 from syurbot_db.db_models.tagset import TagsetModel
 from syurbot_db.db_models.tagset_has_tag import TagsetHasTagModel
 from syurbot_db.db_session import SESSION
-from sqlalchemy import and_
 
 
 tag_query = SESSION.query(TagModel)

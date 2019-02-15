@@ -1,40 +1,71 @@
-from syurbot_db.db_models.tag import TagModel
-from syurbot_db.db_models.tagset import TagSetModel
-from syurbot_db.db_models.tagset_has_tag import TagSetHasTagModel
-from syurbot_db.db_models.word import WordModel
-from syurbot_db.db_session import SESSION
+from config.config import engine
+from syurbot_db.db_requests import get_tags_ids, get_tagset_tags_names
 from syur_classes import MyWord
-from syurbot_db.db_requests import get_tags_ids, get_tagsets_having_tags_ids, get_tags_names
-from random import choice as random_choice
-import re
-import os
-from sqlalchemy import and_
-
-tag_query = SESSION.query(TagModel)
-tagset_query = SESSION.query(TagSetModel)
-tagsethastag_query = SESSION.query(TagSetHasTagModel)
 
 
-def generate_word(required_tags, inflect_tags, frequency=0, word_source="freq_dict"):
-    word_query = SESSION.query(WordModel)
-    word_tags_ids = get_tags_ids(required_tags)
-    tagsets_ids = get_tagsets_having_tags_ids(word_tags_ids)
-    word_query = word_query.filter(
-        and_(
-            WordModel.tagset_id.in_(tagsets_ids),
-            WordModel.word_source == word_source,
-            WordModel.frequency >= frequency
+connection = engine.connect()
+
+
+def generate_word(source_id, tagset_id=None, required_tags=None, excluded_tags=None, inflect_tags=None, frequency=0):
+    if tagset_id:
+        tagsets_ids = {tagset_id}
+
+    else:
+        required_tags_ids = get_tags_ids(required_tags)
+        tagsets_having_tags = []
+        for tag_id in required_tags_ids:
+            tagsets_having_tag = connection.execute(
+                """
+                SELECT DISTINCT(tagset_id) tagset_id FROM tagset_has_tag 
+                WHERE tag_id = {}
+                """.format(tag_id)
+            )
+            tagsets_having_tag = {tagsets_id.tagset_id for tagsets_id in tagsets_having_tag}
+            tagsets_having_tags.append(tagsets_having_tag)
+
+        tagsets_ids = set.intersection(*tagsets_having_tags)
+
+        if excluded_tags:
+            excluded_tagsets_having_tags = []
+            excluded_tags_ids = get_tags_ids(excluded_tags)
+            for tag_id in excluded_tags_ids:
+                excluded_tagsets_having_tag = connection.execute(
+                    """
+                    SELECT DISTINCT(tagset_id) tagset_id FROM tagset_has_tag 
+                    WHERE tag_id = {}
+                    """.format(tag_id)
+                )
+                excluded_tagsets_having_tag = [tagsets_id.tagset_id for tagsets_id in excluded_tagsets_having_tag]
+                excluded_tagsets_having_tags += excluded_tagsets_having_tag
+
+            excluded_tagsets_ids = set(excluded_tagsets_having_tags)
+            tagsets_ids = tagsets_ids - excluded_tagsets_ids
+
+        if not tagsets_ids:
+            raise ValueError("No words having such tags")
+
+    tagsets_ids = {str(tagset_id) for tagset_id in tagsets_ids}
+    random_row = connection.execute(
+        """
+        SELECT * FROM word 
+        WHERE tagset_id in ({}) AND source_id = {} AND frequency >= {}     
+        ORDER BY RAND()
+        LIMIT 1
+        """.format(
+            ", ".join(tagsets_ids),
+            source_id,
+            frequency
         )
-    )
+    ).fetchone()
 
-    if not word_query:
-        print("no fitting words")
-        return
+    random_word = random_row.word
+    random_tagset = random_row.tagset_id
+    tagset_tags = get_tagset_tags_names(random_tagset)
 
-    word = random_choice([word for word in word_query])
-    myword_instance = MyWord(word.word, tags=get_tags_names(word.tagset_id), is_normal_form=True)
+    myword_instance = MyWord(random_word, tags=tagset_tags, is_normal_form=True)
 
     if not myword_instance.parse_chosen:
+
         return "check word"
 
     if inflect_tags:
@@ -42,10 +73,30 @@ def generate_word(required_tags, inflect_tags, frequency=0, word_source="freq_di
     else:
         return myword_instance.parse_chosen.word
 
-"""
+
+word = generate_word(
+    source_id=1,
+    tagset_id=0,
+    required_tags=["NOUN"],
+    excluded_tags=["femn", "anim"],
+    inflect_tags=["plur", "ablt"]
+)
+print(word)
 
 
-def check_sentence(sentence, to_print=False, for_base=True):
+def generate_similar_word(word_example):
+    try:
+        myword_instance = MyWord(word_example)
+        word = myword_instance.parse_chosen.normal_form
+        required_tags = myword_instance.required_tags
+        
+
+
+    except:
+        return word
+
+"""def check_sentence(sentence, to_print=False, for_base=True):
+
 
     if (
             not "NOUN" in [MyWord(p).pos for p in sentence_words] and

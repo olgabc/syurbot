@@ -52,12 +52,15 @@ def get_lexeme_dict_rows(
         for word_form in word_forms:
             if MyWord.purpose != "add_db_freq_dict" and word_form[1] not in PSOS_TO_CHECK:
                 continue
-            word_1 = MyWord(
-                word=word_form[0],
-                tags=psos_dict[word_form[1]],
-                is_normal_form=True,
-                word_register=word_register
-            )
+            try:
+                word_1 = MyWord(
+                    word=word_form[0],
+                    tags=psos_dict[word_form[1]],
+                    is_normal_form=True,
+                    word_register=word_register
+                )
+            except MyWordParamsError:
+                continue
 
             if not word_1.parses:
                 continue
@@ -173,3 +176,32 @@ def write_words_rows(rows):
                 row["frequency"]
             )
         )
+
+
+def group_word_temp_rows():
+    grouped_word_temp = connection.execute(
+        """
+        SELECT word, tagset_id, source_id, hash, sum(frequency) as frequency
+        FROM word_temp 
+        GROUP BY hash
+        ORDER BY word
+    """)
+
+    for row in grouped_word_temp:
+        connection.execute(
+            """
+            INSERT INTO word (word, tagset_id, source_id, hash, frequency) 
+            VALUES ('{}', {}, {}, '{}', {})""".format(
+                row[0],
+                row[1],
+                row[2],
+                row[3],
+                row[4]
+            )
+        )
+
+    connection.execute(
+        """
+        TRUNCATE TABLE word_temp
+        """
+    )
