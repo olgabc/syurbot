@@ -1,5 +1,6 @@
 #!/usr/bin/python
 # # -*- coding: utf-8 -*-
+# ая-яя
 
 from libs.text_funcs import get_word_register
 import pymorphy2
@@ -13,13 +14,14 @@ class MyWordParamsError(Exception):
 
 
 class MyWord:
-    custom_tags = ["3_ii", "3_only", "refl", "multianim"]
+    custom_tags = ["3_ii", "3_only", "refl", "multianim", "adjf_oy"]
     purpose = ""
 
     def __init__(
             self,
             word,
             tags=None,
+            excluded_tags=None,
             score=0,
             word_register=None,
             is_normal_form=False,
@@ -28,7 +30,8 @@ class MyWord:
         """
 
         :param word:
-        :param tags: pymorphy2 tags
+        :param tags: in pymorphy2 tags, MyWord.custom_tags
+        :param excluded_tags: in pymorphy2 tags
         :param score: float in [0,1]
         :param word_register: {None, "get_register", "lower", "title", "upper"}
         :param is_normal_form [False, True]
@@ -45,6 +48,7 @@ class MyWord:
         self.is_homonym = False
         self.parse_chosen = None
         self.tags_passed = tags
+        self.excluded_tags_passed = excluded_tags
         self.extra_tags = []
         self.custom_tags = []
         self.all_tags = []
@@ -73,8 +77,15 @@ class MyWord:
         if isinstance(self.tags_passed, str):
             self.tags_passed = [self.tags_passed, ]
 
-        if self.tags_passed:
+        if not self.excluded_tags_passed:
+            self.excluded_tags_passed = []
+
+        if isinstance(self.excluded_tags_passed, str):
+            self.excluded_tags_passed = [self.excluded_tags_passed, ]
+
+        if self.tags_passed or self.excluded_tags_passed:
             self.tags_passed = [str(tag) for tag in self.tags_passed]
+            self.excluded_tags_passed = [str(tag) for tag in self.excluded_tags_passed]
             self._try_tags_passed()
 
         if is_normal_form:
@@ -152,6 +163,11 @@ class MyWord:
         tags_set = set(non_custom_tags)
 
         parses = [parse for parse in self.parses if tags_set in parse.tag]
+
+        if self.excluded_tags_passed:
+            parses = [parse for parse in parses if not any([
+                excluded_tag in parse.tag for excluded_tag in self.excluded_tags_passed
+            ])]
 
         if self.tagset_is_full:
             parses = [parse for parse in parses if set(str(parse.tag).replace(" ", ",").split(",")) == tags_set]
@@ -298,10 +314,19 @@ class MyWord:
         if self.pos == "NOUN":
             declension_tags = []
 
-            if self.parse_chosen.tag.gender == "femn" and self.parse_chosen.normal_form[-1] == "ь":
+            if (
+                    self.parse_chosen.tag.gender == "femn" and
+                    self.parse_chosen.normal_form[-1] == "ь" and
+                    "Patr" not in self.capitalized_tags and
+                    "Surn" not in self.capitalized_tags
+            ):
                 declension_tags = ["3_ii", "3_only"]
 
-            elif self.parse_chosen.normal_form[-2:] in ["ия", "ие", "ий"]:
+            elif (
+                    self.parse_chosen.normal_form[-2:] in ["ия", "ие", "ий"] and
+                    "Patr" not in self.capitalized_tags and
+                    "Surn" not in self.capitalized_tags
+            ):
                 declension_tags = ["3_ii", ]
 
             self.custom_tags += declension_tags
@@ -314,9 +339,10 @@ class MyWord:
                     self.custom_tags.append("multianim")
 
         elif self.pos in ["VERB", "INFN", "GRND", "PRTF", "PRTF"] and self.word[-2:] in ["сь", "ся"]:
+            self.custom_tags += ["refl", ]
 
-            refl_tags = ["refl", ]
-            self.custom_tags += refl_tags
+        elif self.pos in ["ADJF", "PRTF"] and self.parse_chosen.normal_form[-2:] == "ой":
+            self.custom_tags += ["adjf_oy", ]
 
         self.custom_tags = list(set(self.custom_tags))
         return
@@ -365,6 +391,9 @@ class MyWord:
 
             if "multianim" in required_tags and "anim" in required_tags:
                 required_tags.remove("anim")
+
+            if self.word[-2:] != "ой" and "adjf_oy" in self.custom_tags:
+                required_tags.remove("adjf_oy")
 
         required_tags.append(required_pos)
         required_tags = list(set(required_tags))
@@ -447,8 +476,6 @@ class MyWord:
 
         verb_tags = [tag_vi for tag_vi in tags_verb_infn if tag_vi is not None]
 
-        if "refl" in self.custom_tags:
-            verb_tags.append("refl")
         return verb_tags
 
     def _get_adjf_tags(self):
@@ -529,3 +556,5 @@ class MyWord:
 # tense - время (настоящее, прошедшее, будущее)
 # transitivity - переходность (переходный, непереходный)
 # voice - залог (действительный, страдательный)
+
+# http://opencorpora.org/dict.php?act=gram

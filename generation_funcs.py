@@ -1,208 +1,278 @@
 from config.config import engine
 from syurbot_db.db_requests import get_tags_ids, get_tagset_tags_names
-from syur_classes import MyWord
+from syurbot_db.hashing import tagset_to_hash
+from syur_classes import MyWord, MyWordParamsError
+from sqlalchemy.exc import ProgrammingError
+from libs.text_funcs import replace_word_with_case, split_by_words, replace_word_in_sentence, get_word_register
+import random
 
 
+#TODO passed_tags_settings, select_tagset_id_length
 connection = engine.connect()
 
 
-def generate_word(source_id, tagset_id=None, required_tags=None, excluded_tags=None, inflect_tags=None, frequency=0):
+class TagsError (Exception):
+    pass
+
+
+def generate_word(
+        source_id,
+        tagset_id=None,
+        required_tags=None,
+        excluded_tags=None,
+        inflect_tags=None,
+        frequency=0,
+        register=None,
+        select_words_qty_min=10
+):
     if tagset_id:
         tagsets_ids = {tagset_id}
 
     else:
-        required_tags_ids = get_tags_ids(required_tags)
-        tagsets_having_tags = []
-        for tag_id in required_tags_ids:
-            tagsets_having_tag = connection.execute(
-                """
-                SELECT DISTINCT(tagset_id) tagset_id FROM tagset_has_tag 
-                WHERE tag_id = {}
-                """.format(tag_id)
-            )
-            tagsets_having_tag = {tagsets_id.tagset_id for tagsets_id in tagsets_having_tag}
-            tagsets_having_tags.append(tagsets_having_tag)
-
-        tagsets_ids = set.intersection(*tagsets_having_tags)
+        required_tags_ids = tuple(get_tags_ids(required_tags))
+        required_tags_qty = len(required_tags)
 
         if excluded_tags:
-            excluded_tagsets_having_tags = []
-            excluded_tags_ids = get_tags_ids(excluded_tags)
-            for tag_id in excluded_tags_ids:
-                excluded_tagsets_having_tag = connection.execute(
-                    """
-                    SELECT DISTINCT(tagset_id) tagset_id FROM tagset_has_tag 
-                    WHERE tag_id = {}
-                    """.format(tag_id)
+            excluded_tags_ids = tuple(get_tags_ids(excluded_tags))
+            tagsets_ids = connection.execute(
+                """
+                SELECT tagset_id FROM tagset_has_tag 
+                WHERE tag_id in {}
+                AND tagset_id NOT IN (
+                SELECT tagset_id FROM tagset_has_tag 
+                WHERE tag_id in {}
                 )
-                excluded_tagsets_having_tag = [tagsets_id.tagset_id for tagsets_id in excluded_tagsets_having_tag]
-                excluded_tagsets_having_tags += excluded_tagsets_having_tag
-
-            excluded_tagsets_ids = set(excluded_tagsets_having_tags)
-            tagsets_ids = tagsets_ids - excluded_tagsets_ids
+                GROUP BY tagset_id
+                HAVING COUNT(*) = {}
+                """.format(
+                    required_tags_ids,
+                    excluded_tags_ids,
+                    required_tags_qty
+                )
+            )
+        else:
+            tagsets_ids = connection.execute(
+                    """
+                    SELECT tagset_id FROM tagset_has_tag 
+                    WHERE tag_id in {}
+                    GROUP BY tagset_id
+                    HAVING COUNT(tag_id) = {}
+                    """.format(
+                        required_tags_ids,
+                        required_tags_qty
+                    )
+                )
+        tagsets_ids = [row.tagset_id for row in tagsets_ids]
 
         if not tagsets_ids:
-            raise ValueError("No words having such tags")
+            raise TagsError(
+                "No words having such tags: required: {}, excluded: ()".format(
+                    required_tags,
+                    excluded_tags
+                )
+            )
 
     tagsets_ids = {str(tagset_id) for tagset_id in tagsets_ids}
-    random_row = connection.execute(
+    select_words_ids = connection.execute(
         """
-        SELECT * FROM word 
+        SELECT id FROM word 
         WHERE tagset_id in ({}) AND source_id = {} AND frequency >= {}     
-        ORDER BY RAND()
-        LIMIT 1
         """.format(
             ", ".join(tagsets_ids),
             source_id,
             frequency
         )
-    ).fetchone()
+    )
+    ids = []
+    for row in select_words_ids:
+        ids.append(row.id)
 
+    print(len(ids), ids)
+
+    if not ids or len(ids) < select_words_qty_min:
+        raise TagsError("not enough words in select")
+
+    random_id = random.sample(ids, 1)[0]
+    random_row = connection.execute(
+        """
+        SELECT * FROM word 
+        WHERE id = {}     
+        """.format(random_id)
+    ).fetchone()
     random_word = random_row.word
     random_tagset = random_row.tagset_id
     tagset_tags = get_tagset_tags_names(random_tagset)
-
-    myword_instance = MyWord(random_word, tags=tagset_tags, is_normal_form=True)
-
+    print(random_row, tagset_tags)
+    myword_instance = MyWord(random_word, tags=tagset_tags, is_normal_form=True, word_register=register)
+    print(myword_instance.parse_chosen)
     if not myword_instance.parse_chosen:
-
         return "check word"
 
     if inflect_tags:
+        print(inflect_tags)
+        print("myword_instance.parse_chosen", myword_instance.parse_chosen)
         return myword_instance.parse_chosen.inflect(set(inflect_tags)).word
     else:
         return myword_instance.parse_chosen.word
 
 
-word = generate_word(
-    source_id=1,
-    tagset_id=0,
-    required_tags=["NOUN"],
-    excluded_tags=["femn", "anim"],
-    inflect_tags=["plur", "ablt"]
-)
-print(word)
-
-
-def generate_similar_word(word_example):
+def generate_similar_word(word_example, source_id, frequency=0, register=None):
     try:
-        myword_instance = MyWord(word_example)
-        word = myword_instance.parse_chosen.normal_form
-        required_tags = myword_instance.required_tags
-        
+        myword_instance = MyWord(word_example, word_register=register)
+        print("word_example", word_example)
+        tags = myword_instance.db_tags
+        print("tags", tags)
+        inflect_tags = myword_instance.inflect_tags
+        print("inflect_tags", inflect_tags)
+        excluded_tags = []
+        print("excluded_tags", excluded_tags)
 
+        if register and get_word_register(word_example) == "lower":
+            excluded_tags = ["Abbr", "Name", "Patr", "Surn", "Geox", "Orgn", "Trad"]
 
-    except:
-        return word
+        tagset_hash = tagset_to_hash(tags)
+        tagset_id_select = connection.execute(
+                """
+                SELECT id FROM tagset
+                WHERE hash = '{}'
+                """.format(tagset_hash)
+            ).fetchone()
 
-"""def check_sentence(sentence, to_print=False, for_base=True):
-
-
-    if (
-            not "NOUN" in [MyWord(p).pos for p in sentence_words] and
-            not {"он", "она", "оно", "они"}.intersection(sentence_words)
-    ):
-        print_if(to_print, "has no NOUN or NPRO")
-        return
-
-    sentence_words = sentence.split(" ")
-    check_results = {sw: "trash" for sw in sentence_words}
-
-    for key in check_results.keys():
-        check_results[key] = check_word(key, to_print=to_print)
-
-    if not for_base:
-        return check_results
-
-    else:
-        if "trash" in check_results.values():
-            return "trash"
+        if tagset_id_select:
+            tagset_id = tagset_id_select[0]
+            word = generate_word(
+                source_id=source_id,
+                frequency=frequency,
+                tagset_id=tagset_id,
+                register=register,
+                inflect_tags=inflect_tags
+                )
 
         else:
-            return check_results
+            word = generate_word(
+                source_id=source_id,
+                frequency=frequency,
+                required_tags=tags,
+                excluded_tags=excluded_tags,
+                register=register,
+                inflect_tags=inflect_tags
+            )
+            print("ok:", word_example)
+        return replace_word_with_case(word_example, word)
+
+    except MyWordParamsError:
+        print("MyWordsError:", word_example)
+        return word_example
+    except TagsError:
+        print("TagsError:", word_example)
+        return word_example
+    except ProgrammingError:
+        print("ProgrammingError:", word_example)
+        return word_example
 
 
-def choose_sentences(name_without_extension, folder="books_splited", delete_na=True):
-    sentences_frame = load_some_csv(name_without_extension, folder)
-    sentences_frame["check"] = sentences_frame["sentence"].apply(
-        lambda x: check_sentence_words(x, to_print=False)
-    )
+def select_random_sentence(
+        source_id,
+        sentence_length_min=None,
+        sentence_length_max=None,
+        unchangable_words_qty_max=None,
+        fixed_words_qty_max=None,
+        trash_words_qty_max=None
 
-    if delete_na:
-        sentences_frame = sentences_frame[sentences_frame["check"] == "trash"]
-        sentences_frame.drop(["check"], axis=1, inplace=True)
+):
+    sentence_length_min_select_row = ""
+    sentence_length_max_select_row = ""
+    unchangable_words_qty_select_row = ""
+    fixed_words_qty_select_row = ""
+    trash_words_qty_select_row = ""
 
-    sentences_frame["words_qty"] = sentences_frame["sentence"].apply(
-        lambda x: len(x.split(" "))
-    )
-    print(sentences_frame.head(20))
-    write_some_csv(sentences_frame, name_without_extension, "filtered_sentences")
+    if sentence_length_min is not None:
+        sentence_length_min_select_row = "AND sentence_length >= {}".format(sentence_length_min)
+
+    if sentence_length_max is not None:
+        sentence_length_max_select_row = "AND sentence_length <= {}".format(sentence_length_max)
+
+    if unchangable_words_qty_max is not None:
+        unchangable_words_qty_select_row = "AND trash_words_qty+fixed_words_qty <= {}".format(unchangable_words_qty_max)
+
+    if fixed_words_qty_max is not None:
+        fixed_words_qty_select_row = "AND fixed_words_qty <= {}".format(fixed_words_qty_max)
+
+    if trash_words_qty_max is not None:
+        trash_words_qty_select_row = "AND trash_words_qty <= {}".format(trash_words_qty_max)
+
+    sentence_row = connection.execute(
+        """
+        SELECT * FROM sentence
+        WHERE source_id = {} 
+        {}
+        {}
+        {}
+        {}
+        {}
+        ORDER BY RAND()
+        LIMIT 1
+        """.format(
+            source_id,
+            sentence_length_min_select_row,
+            sentence_length_max_select_row,
+            unchangable_words_qty_select_row,
+            fixed_words_qty_select_row,
+            trash_words_qty_select_row
+        )
+    ).fetchone()
+
+    print(sentence_row)
+
+    return sentence_row.sentence
 
 
-def generate_sentence(book=None, freq=None, to_print=True, words_qty=None, my_sentence=None):
+def generate_sentence(
+        my_sentence="",
+        word_source_id=None,
+        sentence_source_id=None,
+        sentence_length_min=None,
+        sentence_length_max=None,
+        unchangable_words_qty_max=None,
+        fixed_words_qty_max=None,
+        trash_words_qty_max=None,
+        print_old_sentence=False
+):
     if my_sentence:
-        has_sentence = True
+        sentence = my_sentence
+        if sentence[-1] == "?":
+            sentence = sentence[:-1] + "."
+
     else:
-        has_sentence = False
+        sentence = select_random_sentence(
+            source_id=sentence_source_id,
+            sentence_length_min=sentence_length_min,
+            sentence_length_max=sentence_length_max,
+            unchangable_words_qty_max=unchangable_words_qty_max,
+            fixed_words_qty_max=fixed_words_qty_max,
+            trash_words_qty_max=trash_words_qty_max
+        )
 
-    if not book:
-        book = "freq"
+    sentence_words = split_by_words(sentence)
+    sentence_words_with_registers = [{"word": word, "register": "get_register"} for word in sentence_words]
+    sentence_words_with_registers[0]["register"] = None
 
-    if not my_sentence:
-        if not book:
-            books = [load_some_csv(file[:-4], "filtered_sentences") for file in os.listdir("filtered_sentences")]
-            book_sentence = pd.concat(books)
+    new_sentence = sentence
 
-        else:
-            book_sentence = load_some_csv(book, "filtered_sentences")
+    for word in sentence_words_with_registers:
+        new_word = generate_similar_word(
+            word_example=word["word"],
+            source_id=word_source_id,
+            frequency=0,
+            register=word["register"]
+        )
+        new_sentence = replace_word_in_sentence(word["word"], new_word, new_sentence)
 
-        if words_qty:
-            book_sentence = book_sentence[book_sentence["words_qty"] < words_qty]
+    if print_old_sentence:
 
-        book_sentence = book_sentence.sample(n=1)
-        book_sentence.index = [0]
-        book_sentence = book_sentence.at[0, "sentence"]
-        my_sentence = book_sentence
+        return """
+        old_sentence: {}
+        new_sentence: {}
+        """.format(sentence, new_sentence)
 
-    end_symbol = "."
-
-    if my_sentence[-1] in "!?.:":
-        end_symbol = my_sentence[-1]
-        my_sentence = my_sentence[:-1]
-
-    sentence = re.sub(r'[^-A-яA-z\s\d]|(?<![A-яA-z](?=.[A-яA-z]))-', "", my_sentence)
-    sentence_words = check_sentence_words(sentence, to_print=to_print, for_base=False)
-
-    print("sw", sentence_words)
-
-    for key in sentence_words.keys():
-
-        if sentence_words[key] not in ['fixed', 'trash']:
-            w = MyWord(key)
-            word_for_replace = generate_word(
-                pos=sentence_words[key],
-                required_tags=w.get_required_tags(),
-                inflect_tags=w.get_inflect_tags(),
-                freq=freq,
-                source=book
-            )
-
-            if word_for_replace == "trash":
-                continue
-
-            my_sentence = replace_word(
-                key,
-                word_for_replace,
-                my_sentence
-            )
-
-    my_sentence += end_symbol
-
-    if has_sentence:
-        return my_sentence
-    else:
-        #return
-"""
-#old: {}
-#new: {}
-            #.format(book_sentence, my_sentence)
+    return new_sentence

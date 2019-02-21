@@ -16,7 +16,7 @@ def get_word_register(word):
         return "upper"
 
 
-def replace_with_case(word_f, word_r):
+def replace_word_with_case(word_f, word_r):
     if word_f.islower():
         return word_f.replace(word_f, word_r.lower())
 
@@ -87,22 +87,11 @@ def split_by_words(text):
     return words
 
 
-def replace_with_case(word_f, word_r):
-    if word_f.islower():
-        return word_f.replace(word_f, word_r.lower())
-
-    elif word_f.istitle():
-        return word_f.replace(word_f, word_r.capitalize())
-
-    elif word_f.isupper():
-        return word_f.replace(word_f, word_r.upper())
-
-
-def replace_word(word_f, word_r, sentence):
-    word_r = replace_with_case(word_f, word_r)
+def replace_word_in_sentence(word_f, word_r, sentence):
+    word_r = replace_word_with_case(word_f, word_r)
     sentence = re.sub(
         r'(^|\b){}(\b|$)'.format(word_f),
-        '{}'.format(replace_with_case(word_f, word_r)),
+        '{}'.format(replace_word_with_case(word_f, word_r)),
         sentence
     )
     return sentence

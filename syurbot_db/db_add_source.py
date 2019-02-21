@@ -22,8 +22,7 @@ def add_source_dict(
 
 ):
 
-    SourceDictModel.__table__.create(engine)
-    SentenceModel.__table__.create(engine)
+    #SourceDictModel.__table__.create(engine)
 
     if not sentences:
         sentences = split_by_sentences(text)
@@ -39,8 +38,6 @@ def add_source_dict(
             "fixed_words_qty": 0,
             "trash_words_qty": 0
         }
-
-        sentence_dict["hash"] = row_to_hash([sentence_dict["sentence"], str(sentence_dict["source_id"])])
 
         for lexeme in lexemes_with_registers:
             lexeme_hash = row_to_hash([lexeme["lexeme"], str(lexeme["is_first"])])
@@ -76,11 +73,12 @@ def add_source_dict(
                 lexeme_type = MyWord(word=lexeme["lexeme"], word_register=get_register).info
                 connection.execute(
                     """
-                    INSERT INTO source_dict (lexeme, is_first, hash, type, frequency)
-                    VALUES ('{}', {}, '{}', '{}', {}) 
+                    INSERT INTO source_dict (lexeme, is_first, tags, hash, type, frequency)
+                    VALUES ('{}', {}, '{}', '{}', '{}', {}) 
                     """.format(
                         lexeme["lexeme"],
                         lexeme["is_first"],
+                        "",
                         lexeme_hash,
                         lexeme_type,
                         1
@@ -95,12 +93,11 @@ def add_source_dict(
         try:
             connection.execute(
                 """
-                INSERT INTO sentence (sentence, source_id, hash, sentence_length, fixed_words_qty, trash_words_qty)
-                VALUES ('{}', {}, '{}', {}, {}, {})
+                INSERT INTO sentence (sentence, source_id, sentence_length, fixed_words_qty, trash_words_qty)
+                VALUES ('{}', {}, {}, {}, {})
                 """.format(
                     sentence_dict["sentence"],
                     sentence_dict["source_id"],
-                    sentence_dict["hash"],
                     sentence_dict["sentence_length"],
                     sentence_dict["fixed_words_qty"],
                     sentence_dict["trash_words_qty"],
@@ -143,5 +140,3 @@ source_dict_rows = get_source_dict_rows(source_id=2)
 write_words_rows(source_dict_rows)
 group_word_temp_rows()
 """
-
-
