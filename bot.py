@@ -1,3 +1,5 @@
+from config.config import engine
+print(engine)
 from utils.coll import Config
 from telegram.ext import Updater
 import logging
@@ -6,8 +8,7 @@ from telegram.ext import MessageHandler
 # from telegram.ext import ConversationHandler
 from telegram.ext import Filters
 from generation_funcs import generate_sentence
-from config.config import engine
-print(engine)
+
 
 TOKEN = Config.get('TELEGRAM.token')
 PROXY_URL = Config.get('TELEGRAM.proxy')
