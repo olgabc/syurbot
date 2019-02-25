@@ -344,8 +344,8 @@ def generate_sentence(
     if print_old_sentence:
 
         return """
-        old_sentence: {}
-        new_sentence: {}
-        """.format(sentence, new_sentence)
+old_sentence: {}
+new_sentence: {}
+    """.format(sentence, new_sentence)
 
     return new_sentence
