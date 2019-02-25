@@ -6,12 +6,12 @@ DB_PASSWORD = Config.get('DB.password')
 
 local_engine = create_engine(
     'mysql+pymysql://root:{}@{}/syurbot_db'.format(DB_PASSWORD, DB_HOST),
-    #echo=True
+    echo=True
 )
 
-DB_REMOTE_HOST = Config.get('DB_REMOTE.remote_host')
-DB_REMOTE_USER = Config.get('DB_REMOTE.remote_user')
-DB_REMOTE_PASSWORD = Config.get('DB_REMOTE.remote_password')
+DB_REMOTE_HOST = Config.get('DB_REMOTE.host')
+DB_REMOTE_USER = Config.get('DB_REMOTE.user')
+DB_REMOTE_PASSWORD = Config.get('DB_REMOTE.password')
 
 remote_engine = create_engine(
     'mysql+pymysql://{}:{}@{}/syurbot_db'.format(

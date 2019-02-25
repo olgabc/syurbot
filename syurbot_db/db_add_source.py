@@ -3,12 +3,12 @@
 
 from libs.text_funcs import load_some_text
 from syur_classes import MyWord
-from syurbot_db.db_models.sentence import SentenceModel
 from libs.text_funcs import split_by_words, split_by_sentences
 from syurbot_db.add_words import get_lexeme_dict_rows, write_words_rows, group_word_temp_rows
 from syurbot_db.db_models.source_dict import SourceDictModel
 from config.config import engine
 from syurbot_db.hashing import row_to_hash
+from sqlalchemy import text
 from sqlalchemy.exc import ProgrammingError as SQLProgrammingError
 
 MyWord.purpose = "add_db_source_dict"
@@ -17,7 +17,7 @@ connection = engine.connect()
 
 def add_source_dict(
         source_id,
-        text=None,
+        source_text=None,
         sentences=None,
 
 ):
@@ -25,7 +25,7 @@ def add_source_dict(
     #SourceDictModel.__table__.create(engine)
 
     if not sentences:
-        sentences = split_by_sentences(text)
+        sentences = split_by_sentences(source_text)
 
     for sentence in sentences:
         sentences_lexemes = split_by_words(sentence)
@@ -41,27 +41,32 @@ def add_source_dict(
 
         for lexeme in lexemes_with_registers:
             lexeme_hash = row_to_hash([lexeme["lexeme"], str(lexeme["is_first"])])
-            select_lexeme = connection.execute(
+            select_lexeme_text = text(
                 """
                 SELECT id, hash, frequency, type FROM source_dict
-                WHERE hash = '{}'
-                """.format(
-                    lexeme_hash
-                )
+                WHERE hash = :lexeme_hash
+                """
+            )
+            select_lexeme = connection.execute(
+                select_lexeme_text,
+                lexeme_hash=lexeme_hash
             ).fetchone()
+
             if select_lexeme:
                 lexeme_id = select_lexeme.id
                 frequency = select_lexeme.frequency
                 lexeme_type = select_lexeme.type
 
-                connection.execute(
+                update_source_dict_text = text(
                     """
-                    UPDATE source_dict SET frequency = {}
-                    WHERE id = {}
-                    """.format(
-                        frequency + 1,
-                        lexeme_id
-                    )
+                    UPDATE source_dict SET frequency = :frequency
+                    WHERE id = :id
+                    """
+                )
+                connection.execute(
+                    update_source_dict_text,
+                    frequency + 1,
+                    lexeme_id
                 )
 
             else:
@@ -71,18 +76,20 @@ def add_source_dict(
                     get_register = None
 
                 lexeme_type = MyWord(word=lexeme["lexeme"], word_register=get_register).info
-                connection.execute(
+                insert_into_source_dict_text = text(
                     """
                     INSERT INTO source_dict (lexeme, is_first, tags, hash, type, frequency)
-                    VALUES ('{}', {}, '{}', '{}', '{}', {}) 
-                    """.format(
-                        lexeme["lexeme"],
-                        lexeme["is_first"],
-                        "",
-                        lexeme_hash,
-                        lexeme_type,
-                        1
-                    )
+                    VALUES (:lexeme, :is_first, '', :lexeme_hash, :lexeme_type, 1) 
+                    """
+
+                )
+
+                connection.execute(
+                    insert_into_source_dict_text,
+                    lexeme=lexeme["lexeme"],
+                    is_first=lexeme["is_first"],
+                    lexeme_hash=lexeme_hash,
+                    lexeme_type=lexeme_type
                 )
 
             if lexeme_type == "trash":
@@ -91,17 +98,19 @@ def add_source_dict(
                 sentence_dict["fixed_words_qty"] += 1
 
         try:
-            connection.execute(
+            insert_into_sentence_text = text(
                 """
                 INSERT INTO sentence (sentence, source_id, sentence_length, fixed_words_qty, trash_words_qty)
-                VALUES ('{}', {}, {}, {}, {})
-                """.format(
-                    sentence_dict["sentence"],
-                    sentence_dict["source_id"],
-                    sentence_dict["sentence_length"],
-                    sentence_dict["fixed_words_qty"],
-                    sentence_dict["trash_words_qty"],
-                )
+                VALUES (:sentence, :source_id, :sentence_length, :fixed_words_qty, :trash_words_qty)
+                """
+            )
+            connection.execute(
+                insert_into_sentence_text,
+                sentence=sentence_dict["sentence"],
+                source_id=sentence_dict["source_id"],
+                sentence_length=sentence_dict["sentence_length"],
+                fixed_words_qty=sentence_dict["fixed_words_qty"],
+                trash_words_qty=sentence_dict["trash_words_qty"],
             )
         except SQLProgrammingError:
             continue

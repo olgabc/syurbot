@@ -5,6 +5,7 @@
 from libs.text_funcs import get_word_register
 import pymorphy2
 from config.config import PSOS_TO_CHECK, UNCHANGABLE_WORDS, engine
+from sqlalchemy import text
 
 morph = pymorphy2.MorphAnalyzer()
 
@@ -506,7 +507,7 @@ class MyWord:
             elif parse_pos in ["ADJS", "COMP", "PRTS", "PRTF"]:
                 parse_pos = "ADJF"
 
-            parse_exists = connection.execute(
+            select_parse_exists_text = text(
                 """
                 SELECT 1
                 FROM word                
@@ -514,12 +515,15 @@ class MyWord:
                 ON word.tagset_id = tagset_has_tag.tagset_id                
                 INNER JOIN tag 
                 ON tag.id = tagset_has_tag.tag_id                
-                WHERE word = '{}' AND tag = '{}' and source_id = 1
+                WHERE word = :word AND tag = :tag and source_id = 1
                 LIMIT 1
-                """.format(
-                    parse_normal_form,
-                    parse_pos
-                )
+                """
+            )
+
+            parse_exists = connection.execute(
+                select_parse_exists_text,
+                word=parse_normal_form,
+                tag=parse_pos
             )
 
             if parse_exists:

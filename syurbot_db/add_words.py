@@ -3,6 +3,7 @@ from syurbot_db.db_requests import get_tags_ids
 from syurbot_db.hashing import row_to_hash, tagset_to_hash
 from config.config import PSOS_TO_CHECK, PSOS_TO_FIND
 from config.config import engine
+from sqlalchemy import text
 
 
 connection = engine.connect()
@@ -100,21 +101,28 @@ def get_lexeme_dict_rows(
 
         tags = word_instance[0].db_tags
         tagset_hash = tagset_to_hash(tags)
-        tagset_exists = connection.execute(
+        select_tagset_exists_text = text(
             """
             SELECT COUNT(1) FROM tagset
-            WHERE hash = '{}'
-            """.format(
-                tagset_hash
-            )
+            WHERE hash = :tagset_hash
+            """
+        )
+        tagset_exists = connection.execute(
+            select_tagset_exists_text,
+            tagset_hash=tagset_hash
         ).fetchone()[0]
 
         if tagset_exists:
-            tagset_id = connection.execute(
+            select_tagset_id_text = text(
                 """
-                SELECT id FROM tagset
-                WHERE hash = '{}'
-                """.format(tagset_hash)
+               SELECT id FROM tagset
+               WHERE hash = :tagset_hash
+               """
+            )
+
+            tagset_id = connection.execute(
+                select_tagset_id_text,
+                tagset_hash=tagset_hash
             ).fetchone()[0]
 
             dict_row["tagset_id"] = tagset_id
@@ -126,29 +134,39 @@ def get_lexeme_dict_rows(
             dict_row["hash"] = word_hash
 
         else:
-            connection.execute(
+            insert_into_tagset_text = text(
                 """
-                INSERT INTO tagset (hash) VALUES ('{}')
-                """.format(
-                    tagset_hash
-                )
+                INSERT INTO tagset (hash) VALUES (:tagset_hash)
+                """
+            )
+            connection.execute(
+                insert_into_tagset_text,
+                tagset_hash=tagset_hash
+            )
+            select_tagset_id_text = text(
+                """
+               SELECT id FROM tagset
+               WHERE hash = :tagset_hash
+               """
             )
             tagset_id = connection.execute(
-                """
-                SELECT id FROM tagset
-                WHERE hash = '{}'
-                """.format(tagset_hash)
+                select_tagset_id_text,
+                tagset_hash=tagset_hash
             ).fetchone()[0]
 
-            tags_ids = get_tags_ids(tags, format_type="int")
+            tags_ids = get_tags_ids(tags)
 
             for tag_id in tags_ids:
-                connection.execute(
+                insert_into_tagset_has_tag_text = text(
                     """
-                    INSERT INTO tagset_has_tag (tagset_id, tag_id) VALUES ({}, {})
-                    """.format(
-                        tagset_id, tag_id
-                    )
+                    INSERT INTO tagset_has_tag (tagset_id, tag_id) VALUES (:tagset_id, tag_id)
+                    """
+                )
+
+                connection.execute(
+                    insert_into_tagset_has_tag_text,
+                    tagset_id=tagset_id,
+                    tag_id=tag_id
                 )
 
             dict_row["tagset_id"] = tagset_id
@@ -164,17 +182,20 @@ def get_lexeme_dict_rows(
 
 def write_words_rows(rows):
     for row in rows:
-        connection.execute(
+        insert_into_word_temp_text = text(
             """
             INSERT INTO word_temp (word, tagset_id, source_id, hash, frequency) 
-            VALUES ('{}', {}, {}, '{}', {})
-            """.format(
-                row["word"],
-                row["tagset_id"],
-                row["source_id"],
-                row["hash"],
-                row["frequency"]
-            )
+            VALUES (:word, :tagset_id, :source_id, :hash, :frequency)
+            """
+        )
+
+        connection.execute(
+            insert_into_word_temp_text,
+            word=row["word"],
+            tagset_id=row["tagset_id"],
+            source_id=row["source_id"],
+            hash=row["hash"],
+            frequency=row["frequency"]
         )
 
 
@@ -185,19 +206,23 @@ def group_word_temp_rows():
         FROM word_temp 
         GROUP BY hash
         ORDER BY word
-    """)
+        """
+    )
 
     for row in grouped_word_temp:
-        connection.execute(
+        insert_into_word_text = text(
             """
             INSERT INTO word (word, tagset_id, source_id, hash, frequency) 
-            VALUES ('{}', {}, {}, '{}', {})""".format(
-                row[0],
-                row[1],
-                row[2],
-                row[3],
-                row[4]
-            )
+            VALUES (:word, :tagset_id, :source_id, :hash, :frequency)
+            """
+        )
+        connection.execute(
+            insert_into_word_text,
+            word=row[0],
+            tagset_id=row[1],
+            source_id=row[2],
+            hash=row[3],
+            frequency=row[4]
         )
 
     connection.execute(
