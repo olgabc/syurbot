@@ -309,6 +309,7 @@ def generate_sentence(
         unchangable_words_qty_max=None,
         fixed_words_qty_max=None,
         trash_words_qty_max=None,
+        frequency=0,
         print_old_sentence=False
 ):
     if my_sentence:
@@ -336,7 +337,7 @@ def generate_sentence(
         new_word = generate_similar_word(
             word_example=word["word"],
             source_id=word_source_id,
-            frequency=0,
+            frequency=frequency,
             register=word["register"]
         )
         new_sentence = replace_word_in_sentence(word["word"], new_word, new_sentence)

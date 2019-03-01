@@ -103,6 +103,7 @@ def wisdom_new_and_old(bot, update):
         unchangable_words_qty_max=3,
         fixed_words_qty_max=None,
         trash_words_qty_max=None,
+        frequency=2,
         print_old_sentence=True
     )
     bot.send_message(chat_id=update.message.chat_id, text=text_gen_sen)
@@ -122,6 +123,7 @@ def wisdom(bot, update):
         unchangable_words_qty_max=3,
         fixed_words_qty_max=None,
         trash_words_qty_max=None,
+        frequency=2,
         print_old_sentence=False
     )
     bot.send_message(chat_id=update.message.chat_id, text=text_gen_sen)
