@@ -65,8 +65,8 @@ def add_source_dict(
                 )
                 connection.execute(
                     update_source_dict_text,
-                    frequency + 1,
-                    lexeme_id
+                    frequency=frequency+1,
+                    id=lexeme_id
                 )
 
             else:
@@ -144,8 +144,24 @@ def get_source_dict_rows(source_id):
 
 """
 mytext = load_some_text("ann_kar.txt")
-add_source_dict(text=mytext, source_id=2)
-source_dict_rows = get_source_dict_rows(source_id=2)
+#add_source_dict(text=mytext, source_id=2)
+add_source_dict(sentences=mysentences, source_id=3)
+source_dict_rows = get_source_dict_rows(source_id=3)
 write_words_rows(source_dict_rows)
 group_word_temp_rows()
+
+
 """
+import pyexcel as pe
+sheet = pe.get_sheet(file_name='D:\syurbot\syurbot_db\dal_wisdom.xlsx')
+
+my_sentences=[]
+for row in sheet:
+    my_sentences.append(row[0])
+
+add_source_dict(sentences=my_sentences, source_id=3)
+
+
+
+
+

@@ -76,8 +76,8 @@ def book_new_and_old_sentence(bot, update):
     bot.send_message(chat_id=update.message.chat_id, text=text_gen_sen)
 
 
-book_handler = CommandHandler('new_and_old', book_new_and_old_sentence, pass_args=False)
-dispatcher.add_handler(book_handler)
+book_new_and_old_handler = CommandHandler('new_and_old', book_new_and_old_sentence, pass_args=False)
+dispatcher.add_handler(book_new_and_old_handler)
 
 
 def users_sentence(bot, update):
@@ -91,3 +91,41 @@ def users_sentence(bot, update):
 
 talk_handler = MessageHandler(Filters.text, users_sentence)
 dispatcher.add_handler(talk_handler)
+
+
+def wisdom_new_and_old(bot, update):
+
+    text_gen_sen = generate_sentence(
+        my_sentence="",
+        word_source_id=3,
+        sentence_source_id=3,
+        sentence_length_min=7,
+        unchangable_words_qty_max=3,
+        fixed_words_qty_max=None,
+        trash_words_qty_max=None,
+        print_old_sentence=True
+    )
+    bot.send_message(chat_id=update.message.chat_id, text=text_gen_sen)
+
+
+wisdom_new_and_old_handler = CommandHandler('wisdom_new_and_old', wisdom_new_and_old, pass_args=False)
+dispatcher.add_handler(wisdom_new_and_old_handler)
+
+
+def wisdom(bot, update):
+
+    text_gen_sen = generate_sentence(
+        my_sentence="",
+        word_source_id=3,
+        sentence_source_id=3,
+        sentence_length_min=7,
+        unchangable_words_qty_max=3,
+        fixed_words_qty_max=None,
+        trash_words_qty_max=None,
+        print_old_sentence=True
+    )
+    bot.send_message(chat_id=update.message.chat_id, text=text_gen_sen)
+
+
+wisdom_handler = CommandHandler('wisdom', wisdom, pass_args=False)
+dispatcher.add_handler(wisdom_handler)

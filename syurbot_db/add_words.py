@@ -111,6 +111,7 @@ def get_lexeme_dict_rows(
             select_tagset_exists_text,
             tagset_hash=tagset_hash
         ).fetchone()[0]
+        print("tagset_exists", tagset_exists)
 
         if tagset_exists:
             select_tagset_id_text = text(
@@ -159,7 +160,7 @@ def get_lexeme_dict_rows(
             for tag_id in tags_ids:
                 insert_into_tagset_has_tag_text = text(
                     """
-                    INSERT INTO tagset_has_tag (tagset_id, tag_id) VALUES (:tagset_id, tag_id)
+                    INSERT INTO tagset_has_tag (tagset_id, tag_id) VALUES (:tagset_id, :tag_id)
                     """
                 )
 
