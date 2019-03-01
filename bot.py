@@ -29,7 +29,7 @@ def start(bot, update):
         chat_id=update.message.chat_id,
         text="""
 я Сюробот,
-я знаю команды "/book", "/new_and_old"
+я знаю команды "/book", "/wisdom"
 я молодец.
 
 Или поговорите со мной, мне скучно.
@@ -122,7 +122,7 @@ def wisdom(bot, update):
         unchangable_words_qty_max=3,
         fixed_words_qty_max=None,
         trash_words_qty_max=None,
-        print_old_sentence=True
+        print_old_sentence=False
     )
     bot.send_message(chat_id=update.message.chat_id, text=text_gen_sen)
 
